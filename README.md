@@ -101,12 +101,22 @@ operator recovery path while the same reviewed configuration and keys remain val
 
 ## Shared package and remaining integration
 
+Version 0.4.5 adds the `PortalOwnerPolicy` contract and optional reviewed
+`policies/portal-owner.json`. Its numeric repository binding and explicit GitHub user
+IDs grant read-only access to the portal's Platform owner console. This role is separate
+from application ownership, onboarding and deployment grants. An empty owner list
+disables access. The CLI validates the policy against the delivery repository identity
+and exports `schemas/portal-owner-policy.v1.json`. Role changes use the protected main
+branch's independent maintainer review; the portal rechecks the current grant on each
+owner request. No Kubernetes credentials, branch bypass or write capability is added.
+
 The portal carries a hash-pinned local wheel and source manifest, built by
 `tooling/refresh_portal_vendor.py`. This is a local distribution snapshot, not a signed
 package release. Bump versions before changing published content, refresh the wheel,
 then refresh portal locks and requirement exports and run its checks.
 
-Remaining integration includes installing/verifying the configured system runtime,
+The configured system runtime and separate `hello-aegis` DEV application have completed
+live integration. Remaining work includes reviewing and activating the owner console,
 explicit legacy sample enrollment, protected-target end-to-end evidence, rollback and
 advance controls, and credential rotation/recovery procedures. Keep these separate from
 the already verified DEV request path. Design references are in the sample repository's

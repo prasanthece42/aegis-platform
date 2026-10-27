@@ -50,6 +50,18 @@ def main():
             print(json.dumps(chart_identity(args.chart), indent=2))
             return
         catalog = load_catalog(args.catalog, args.policy)
+        owner_path = args.policy.parent / "portal-owner.json"
+        if owner_path.exists():
+            from aegis_platform.canonical import strict_json
+            from aegis_platform.portal_owner import PortalOwnerPolicy
+
+            owner = PortalOwnerPolicy.model_validate(strict_json(owner_path.read_bytes()))
+            delivery_path = args.policy.parent / "delivery.json"
+            if (
+                owner.platform_repository_id
+                != strict_json(delivery_path.read_bytes())["platform_repository_id"]
+            ):
+                raise ValueError("Owner policy differs from the reviewed platform repository")
         if args.command == "render-bootstrap":
             from aegis_platform.bootstrap import bootstrap_plan, write_plan
             from aegis_platform.canonical import strict_json
@@ -116,6 +128,7 @@ def export_schemas(directory: Path):
     from aegis_platform.contracts import RegistrationFields, RegistrationSubmission
     from aegis_platform.delivery import DeliveryPolicy, DeploymentFields, DeploymentSubmission
     from aegis_platform.portal_config import LiveConfig
+    from aegis_platform.portal_owner import PortalOwnerPolicy
     from aegis_platform.portal_system import PortalSystemPolicy
     from aegis_platform.release import PublishedPlatform, ReleaseEvidence
     from aegis_platform.request import RequestTrust
@@ -137,6 +150,7 @@ def export_schemas(directory: Path):
         (RequestTrust, "request-trust"),
         (LiveConfig, "portal-config"),
         (PortalSystemPolicy, "portal-system-policy"),
+        (PortalOwnerPolicy, "portal-owner-policy"),
     ]:
         schema = model.model_json_schema()
         schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"

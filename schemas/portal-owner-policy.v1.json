@@ -1,0 +1,40 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "platform_repository_id": {
+      "maxLength": 24,
+      "pattern": "^[1-9][0-9]*$",
+      "title": "Platform Repository Id",
+      "type": "string"
+    },
+    "mode": {
+      "const": "read_only",
+      "title": "Mode",
+      "type": "string"
+    },
+    "owner_user_ids": {
+      "items": {
+        "maxLength": 24,
+        "pattern": "^[1-9][0-9]*$",
+        "type": "string"
+      },
+      "maxItems": 20,
+      "title": "Owner User Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "platform_repository_id",
+    "mode",
+    "owner_user_ids"
+  ],
+  "title": "PortalOwnerPolicy",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}
