@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "stage": "review-only-not-enrolled",
+  "app_id": "sample-api",
+  "display_name": "Sample API",
+  "source_repository": "prasanthece42/aegis-cicd",
+  "source_repository_id": "1433709750",
+  "source_installation_id": "175648688",
+  "gitops_repository": "prasanthece42/aegis-gitops",
+  "gitops_repository_id": "1433742863",
+  "owner_user_ids": [
+    "4831204"
+  ],
+  "cluster_id": "kind-local",
+  "cluster_uid": "668172eb-130b-4b59-8629-7448aaa382e9",
+  "release_schema_version": 2,
+  "pipeline": "existing-sample-pipeline",
+  "portal_delivery_enabled": false,
+  "create_or_rename_resources": false,
+  "production_human_review_required": true,
+  "protected_sync_mode": "operator",
+  "environments": {
+    "dev": {
+      "namespace": "aegis-dev",
+      "argo_application": "sample-api-local",
+      "argo_project": "aegis-local",
+      "gitops_branch": "main",
+      "values_path": "environments/dev/values.yaml",
+      "controller_path": "argocd/applications/sample-api-local.yaml",
+      "chart_path": "charts/sample-api",
+      "helm_release": "sample-api",
+      "delivery_mode": "automatic"
+    },
+    "staging": {
+      "namespace": "aegis-staging",
+      "argo_application": "sample-api-staging-local",
+      "argo_project": "aegis-staging",
+      "gitops_branch": "staging",
+      "values_path": "environments/staging/values.yaml",
+      "controller_path": "argocd/applications/sample-api-staging-local.yaml",
+      "chart_path": "charts/sample-api",
+      "helm_release": "sample-api",
+      "delivery_mode": "manual"
+    },
+    "prod": {
+      "namespace": "aegis-prod",
+      "argo_application": "sample-api-prod-local",
+      "argo_project": "aegis-prod",
+      "gitops_branch": "prod",
+      "values_path": "environments/prod/values.yaml",
+      "controller_path": "argocd/applications/sample-api-prod-local.yaml",
+      "chart_path": "charts/sample-api",
+      "helm_release": "sample-api",
+      "delivery_mode": "manual"
+    }
+  }
+}

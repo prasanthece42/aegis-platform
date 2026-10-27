@@ -1,0 +1,96 @@
+{
+  "application": {
+    "apiVersion": "argoproj.io/v1alpha1",
+    "kind": "Application",
+    "metadata": {
+      "name": "sample-api-prod-local",
+      "namespace": "argocd"
+    },
+    "spec": {
+      "project": "aegis-prod",
+      "source": {
+        "repoURL": "https://github.com/prasanthece42/aegis-gitops.git",
+        "targetRevision": "prod",
+        "path": "charts/sample-api",
+        "helm": {
+          "releaseName": "sample-api",
+          "valueFiles": [
+            "../../environments/prod/values.yaml",
+            "../../environments/cluster-kind/values.yaml"
+          ]
+        }
+      },
+      "destination": {
+        "server": "https://kubernetes.default.svc",
+        "namespace": "aegis-prod"
+      },
+      "syncPolicy": {
+        "managedNamespaceMetadata": {
+          "labels": {
+            "aegis.io/environment": "prod",
+            "pod-security.kubernetes.io/enforce": "restricted",
+            "pod-security.kubernetes.io/enforce-version": "v1.35",
+            "pod-security.kubernetes.io/audit": "restricted",
+            "pod-security.kubernetes.io/audit-version": "v1.35",
+            "pod-security.kubernetes.io/warn": "restricted",
+            "pod-security.kubernetes.io/warn-version": "v1.35"
+          }
+        },
+        "syncOptions": [
+          "CreateNamespace=true",
+          "ServerSideApply=true",
+          "PruneLast=true",
+          "FailOnSharedResource=true"
+        ],
+        "retry": {
+          "limit": 3,
+          "backoff": {
+            "duration": "5s",
+            "factor": 2,
+            "maxDuration": "1m"
+          }
+        }
+      }
+    }
+  },
+  "project": {
+    "apiVersion": "argoproj.io/v1alpha1",
+    "kind": "AppProject",
+    "metadata": {
+      "name": "aegis-prod",
+      "namespace": "argocd"
+    },
+    "spec": {
+      "description": "Local PROD workload only",
+      "sourceRepos": [
+        "https://github.com/prasanthece42/aegis-gitops.git"
+      ],
+      "destinations": [
+        {
+          "server": "https://kubernetes.default.svc",
+          "namespace": "aegis-prod"
+        }
+      ],
+      "clusterResourceWhitelist": [
+        {
+          "group": "",
+          "kind": "Namespace"
+        }
+      ],
+      "namespaceResourceWhitelist": [
+        {
+          "group": "apps",
+          "kind": "Deployment"
+        },
+        {
+          "group": "",
+          "kind": "Service"
+        },
+        {
+          "group": "",
+          "kind": "ServiceAccount"
+        }
+      ]
+    }
+  }
+}
