@@ -10,6 +10,7 @@ from aegis_platform.delivery import (
     DeliveryPolicy,
     admit_release,
     authorize,
+    normalize_statuses,
     request_id,
     verify_production_approval,
     verify_status,
@@ -139,6 +140,28 @@ def test_latest_failed_observation_overrides_old_success(policy):
     ]:
         with pytest.raises(ValueError):
             verify_status([{**status, **changed}], *args)
+
+
+def test_real_github_status_rows_are_bound_using_their_repository_and_commit_url(policy):
+    now = datetime.now(UTC)
+    commit = "a" * 40
+    row = {
+        "id": 1,
+        "url": f"https://api.github.com/repos/example/source/statuses/{commit}",
+        "context": "aegis/orders-api/example-kind-cache",
+        "description": "cachefp:proof",
+        "state": "success",
+        "creator": {"id": 123},
+        "created_at": now.isoformat(),
+    }
+    normalized = normalize_statuses([row], "example/source", commit)
+    assert "sha" not in row
+    assert verify_status(normalized, row["context"], row["description"], commit, policy, now)
+    for repository, sha in [("example/other", commit), ("example/source", "b" * 40)]:
+        with pytest.raises(ValueError):
+            normalize_statuses([row], repository, sha)
+    with pytest.raises(ValueError):
+        normalize_statuses([{**row, "sha": "b" * 40}], "example/source", commit)
 
 
 def test_prod_requires_independent_human_at_current_head(policy):

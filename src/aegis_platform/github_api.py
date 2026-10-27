@@ -60,6 +60,11 @@ class GitHubAPI:
                 raise ValueError("Expected a bounded GitHub collection")
             items.extend(part)
             if len(part) < 100:
+                match = re.fullmatch(r"commits/([0-9a-f]{40})/statuses", path)
+                if match:
+                    from aegis_platform.delivery import normalize_statuses
+
+                    return normalize_statuses(items, self.repository, match[1])
                 return items
         raise ValueError("GitHub discovery page budget exceeded")
 

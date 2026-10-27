@@ -192,6 +192,28 @@ def verify_status(
     return latest
 
 
+def normalize_statuses(statuses: list[dict], repository: str, commit: str) -> list[dict]:
+    """Bind GitHub REST status rows to their requested endpoint before domain validation.
+
+    GitHub omits `sha` from these rows. Its status URL contains the commit; require
+    both that URL and the adapter's explicit repository/commit to agree.
+    """
+    from aegis_platform.release import validate_repository
+
+    validate_repository(repository)
+    import re
+
+    if not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise ValueError("Expected an immutable status commit")
+    expected = f"https://api.github.com/repos/{repository}/statuses/{commit}".lower()
+    result = []
+    for status in statuses:
+        if status.get("url", "").lower() != expected or status.get("sha", commit) != commit:
+            raise ValueError("Status URL differs from the requested repository and commit")
+        result.append({**status, "sha": commit})
+    return result
+
+
 def verify_intent(
     intent: DeploymentIntent,
     entry: CatalogEntry,
