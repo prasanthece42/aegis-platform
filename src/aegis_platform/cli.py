@@ -115,6 +115,8 @@ def export_schemas(directory: Path):
     from aegis_platform.catalog import CatalogPolicy, Cluster
     from aegis_platform.contracts import RegistrationFields, RegistrationSubmission
     from aegis_platform.delivery import DeliveryPolicy, DeploymentFields, DeploymentSubmission
+    from aegis_platform.portal_config import LiveConfig
+    from aegis_platform.portal_system import PortalSystemPolicy
     from aegis_platform.release import PublishedPlatform, ReleaseEvidence
     from aegis_platform.request import RequestTrust
 
@@ -133,6 +135,8 @@ def export_schemas(directory: Path):
         (DeploymentFields, "deployment-fields"),
         (DeploymentSubmission, "deployment-submission"),
         (RequestTrust, "request-trust"),
+        (LiveConfig, "portal-config"),
+        (PortalSystemPolicy, "portal-system-policy"),
     ]:
         schema = model.model_json_schema()
         schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
