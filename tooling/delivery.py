@@ -83,12 +83,26 @@ def worker():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["propose", "check-pr", "check-event"])
+    parser.add_argument("command", choices=["propose", "check-pr", "check-event", "check-run"])
     parser.add_argument("--request-id")
     parser.add_argument("--issue-number", type=int)
     parser.add_argument("--pr-number", type=int)
     args = parser.parse_args()
     engine = worker()
+    if args.command == "check-run":
+        sha = os.environ.get("RUN_HEAD_SHA", "")
+        branch = os.environ.get("RUN_HEAD_BRANCH", "")
+        if not re.fullmatch(r"[0-9a-f]{40}", sha) or not branch:
+            raise ValueError("Invalid completed-run identity")
+        prs = engine.gitops.pages("pulls", state="open", head="prasanthece42:" + branch)
+        matches = [pr for pr in prs if pr["head"]["sha"] == sha]
+        if not matches:
+            print("Completed run has no current open PR")
+            return
+        if len(matches) != 1:
+            raise ValueError("Ambiguous completed-run PR binding")
+        args.pr_number = matches[0]["number"]
+        args.command = "check-event"
     if args.command == "check-event":
         number = str(args.pr_number or os.environ.get("PR_NUMBER", ""))
         if not re.fullmatch(r"[1-9][0-9]*", number):
