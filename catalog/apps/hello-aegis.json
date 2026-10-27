@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "app_id": "hello-aegis",
+  "display_name": "Hello Aegis",
+  "source": {
+    "repository_id": "1436010240",
+    "installation_id": "175648688",
+    "owner": "prasanthece42",
+    "name": "hello-aegis",
+    "default_branch": "main"
+  },
+  "access": {
+    "owner_user_ids": [
+      "4831204"
+    ],
+    "viewer_user_ids": [],
+    "deployer_user_ids_by_environment": {
+      "dev": [
+        "4831204"
+      ]
+    }
+  },
+  "runtime": {
+    "profile_id": "python312-web",
+    "container_port": 8000,
+    "health_path": "/health",
+    "resource_profile_id": "small"
+  },
+  "versions": {
+    "workflow_commit": "b4f46baa41dc250a88c86f63ecb0949d5f14af02",
+    "helper_commit": "b4f46baa41dc250a88c86f63ecb0949d5f14af02",
+    "chart_version": "1.0.0",
+    "chart_sha256": "sha256:13c8977cb701a05fcff28fa6cf22067146ed56ad05d6ce760499a22e11f79570"
+  },
+  "environments": {
+    "dev": {
+      "delivery_mode": "manual",
+      "cluster_id": "kind-local",
+      "cluster_uid": "668172eb-130b-4b59-8629-7448aaa382e9",
+      "namespace": "aegis-hello-aegis-dev",
+      "argo_application": "hello-aegis-dev",
+      "argo_project": "hello-aegis-dev",
+      "gitops_repository_id": "1433742863",
+      "gitops_branch": "main",
+      "values_path": "applications/hello-aegis/environments/dev/values.yaml",
+      "access_mapping_id": null
+    }
+  }
+}
