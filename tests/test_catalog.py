@@ -116,7 +116,12 @@ def test_repository_paths_are_normalized(path):
 def test_active_catalog_has_no_fabricated_enrollments():
     root = Path(__file__).resolve().parents[1]
     loaded = load_catalog(root / "catalog", root / "policies/catalog.json")
-    assert loaded.apps == loaded.clusters == {}
+    assert all(
+        not cluster.cluster_uid.startswith("EXAMPLE") for cluster in loaded.clusters.values()
+    )
+    assert all(
+        cluster.cluster_uid != "demo-cluster-not-enrolled" for cluster in loaded.clusters.values()
+    )
 
 
 def test_loader_rejects_symlink_records(tmp_path, policy_record):

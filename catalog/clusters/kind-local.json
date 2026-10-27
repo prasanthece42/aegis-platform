@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "cluster_id": "kind-local",
+  "cluster_uid": "668172eb-130b-4b59-8629-7448aaa382e9",
+  "gitops_repository_id": "1433742863",
+  "profile_id": "kind-local-small"
+}

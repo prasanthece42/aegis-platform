@@ -116,6 +116,7 @@ def export_schemas(directory: Path):
     from aegis_platform.contracts import RegistrationFields, RegistrationSubmission
     from aegis_platform.delivery import DeliveryPolicy, DeploymentFields, DeploymentSubmission
     from aegis_platform.release import PublishedPlatform, ReleaseEvidence
+    from aegis_platform.request import RequestTrust
 
     directory.mkdir(parents=True, exist_ok=True)
     for model, name in [
@@ -131,6 +132,7 @@ def export_schemas(directory: Path):
         (DeliveryPolicy, "delivery-policy"),
         (DeploymentFields, "deployment-fields"),
         (DeploymentSubmission, "deployment-submission"),
+        (RequestTrust, "request-trust"),
     ]:
         schema = model.model_json_schema()
         schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"

@@ -30,6 +30,7 @@ class DeliveryPolicy(Contract):
     platform_repository_id: Identifier
     gitops_repository: str = Field(pattern=r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
     gitops_repository_id: Identifier
+    bootstrap_policy_hash: Digest
     workflow_bot_user_ids: list[Identifier] = Field(min_length=1)
     observer_user_ids: list[Identifier] = Field(min_length=1)
     production_reviewer_user_ids: list[Identifier] = Field(min_length=1)

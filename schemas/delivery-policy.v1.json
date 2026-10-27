@@ -29,6 +29,11 @@
       "title": "Gitops Repository Id",
       "type": "string"
     },
+    "bootstrap_policy_hash": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Bootstrap Policy Hash",
+      "type": "string"
+    },
     "workflow_bot_user_ids": {
       "items": {
         "maxLength": 24,
@@ -84,6 +89,7 @@
     "platform_repository_id",
     "gitops_repository",
     "gitops_repository_id",
+    "bootstrap_policy_hash",
     "workflow_bot_user_ids",
     "observer_user_ids",
     "production_reviewer_user_ids"

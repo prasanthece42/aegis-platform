@@ -1,0 +1,84 @@
+{
+  "$defs": {
+    "Issuer": {
+      "additionalProperties": false,
+      "properties": {
+        "issuer_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Issuer Id",
+          "type": "string"
+        },
+        "key_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Key Id",
+          "type": "string"
+        },
+        "public_key_base64": {
+          "maxLength": 44,
+          "minLength": 43,
+          "title": "Public Key Base64",
+          "type": "string"
+        },
+        "bot_user_id": {
+          "maxLength": 24,
+          "pattern": "^[1-9][0-9]*$",
+          "title": "Bot User Id",
+          "type": "string"
+        },
+        "active": {
+          "title": "Active",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "issuer_id",
+        "key_id",
+        "public_key_base64",
+        "bot_user_id",
+        "active"
+      ],
+      "title": "Issuer",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "platform_repository_id": {
+      "maxLength": 24,
+      "pattern": "^[1-9][0-9]*$",
+      "title": "Platform Repository Id",
+      "type": "string"
+    },
+    "issuers": {
+      "items": {
+        "$ref": "#/$defs/Issuer"
+      },
+      "maxItems": 20,
+      "minItems": 1,
+      "title": "Issuers",
+      "type": "array"
+    },
+    "maximum_request_age_seconds": {
+      "default": 86400,
+      "maximum": 86400,
+      "minimum": 300,
+      "title": "Maximum Request Age Seconds",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "platform_repository_id",
+    "issuers"
+  ],
+  "title": "RequestTrust",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

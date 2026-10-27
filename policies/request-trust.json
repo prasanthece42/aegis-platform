@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "platform_repository_id": "1435080811",
+  "issuers": [
+    {
+      "issuer_id": "aegis-local-portal",
+      "key_id": "aegis-local-2026-10",
+      "public_key_base64": "vWsmKuHMZogIDkdTGObzqKV30yN7Smojs2zy4e+XgL4=",
+      "bot_user_id": "348572338",
+      "active": true
+    }
+  ],
+  "maximum_request_age_seconds": 86400
+}

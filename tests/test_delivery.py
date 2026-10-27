@@ -24,6 +24,7 @@ def policy():
         platform_repository_id="400",
         gitops_repository="example/aegis-gitops",
         gitops_repository_id="401",
+        bootstrap_policy_hash="sha256:" + "a" * 64,
         workflow_bot_user_ids=["41898282"],
         observer_user_ids=["123"],
         production_reviewer_user_ids=["123"],

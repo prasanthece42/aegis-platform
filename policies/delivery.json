@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "platform_repository": "prasanthece42/aegis-platform",
+  "platform_repository_id": "1435080811",
+  "gitops_repository": "prasanthece42/aegis-gitops",
+  "gitops_repository_id": "1433742863",
+  "bootstrap_policy_hash": "sha256:ef1315d9b12e7beb8dc02a98917fc55cf35a02eb613ad964f3a0024b04e2a38e",
+  "workflow_bot_user_ids": [
+    "41898282"
+  ],
+  "observer_user_ids": [
+    "4831204"
+  ],
+  "production_reviewer_user_ids": [
+    "4831204"
+  ],
+  "maximum_evidence_age_seconds": 86400,
+  "production_human_review_required": true,
+  "protected_sync_mode": "operator"
+}

@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "aegis-platform"
-version = "0.3.0"
+version = "0.4.0"
 description = "Aegis shared application catalog, contracts and CI helpers"
 requires-python = ">=3.12,<3.13"
-dependencies = ["pydantic>=2.14,<3", "rfc8785==0.1.4"]
+dependencies = ["pydantic>=2.14,<3", "rfc8785==0.1.4", "cryptography>=44,<50"]
 
 [project.scripts]
 aegis-platform = "aegis_platform.cli:main"
