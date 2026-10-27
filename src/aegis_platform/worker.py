@@ -27,6 +27,15 @@ def tree_files(api, revision, select):
     return result
 
 
+def proposal_issuers(policy, trust, issuer_id):
+    """PR writers are distinct from the immutable release publisher trust set."""
+    return set(policy.workflow_bot_user_ids) | {
+        issuer.bot_user_id
+        for issuer in trust.issuers
+        if issuer.active and issuer.issuer_id == issuer_id
+    }
+
+
 class DeliveryWorker:
     def __init__(self, platform, gitops, source_factory, root: Path):
         self.platform, self.gitops, self.source_factory, self.root = (
@@ -191,10 +200,11 @@ class DeliveryWorker:
             prior=prior,
             prior_statuses=prior_statuses,
         )
-        return intent, policy, head, files, plan
+        proposal_bots = proposal_issuers(policy, trust, intent.issuer_id)
+        return intent, policy, head, files, plan, proposal_bots
 
     def propose(self, rid, number):
-        intent, policy, head, files, plan = self.plan(rid, number)
+        intent, policy, head, files, plan, _proposal_bots = self.plan(rid, number)
         branch = "aegis-requests/" + rid
         prs = self.gitops.pages(
             "pulls", state="all", head=policy.gitops_repository.split("/")[0] + ":" + branch
@@ -251,7 +261,7 @@ class DeliveryWorker:
             raise ValueError("Complete PR diff differs from the exact admitted app request")
 
     def check_pr(self, pr_number, rid, issue_number, *, require_approval=True):
-        intent, policy, base, files, plan = self.plan(rid, issue_number)
+        intent, policy, base, files, plan, proposal_bots = self.plan(rid, issue_number)
         pr = self.gitops.repo("GET", "pulls/" + str(int(pr_number)))
         expected_branch = {"dev": "main", "staging": "staging", "prod": "prod"}[intent.environment]
         if (
@@ -259,7 +269,7 @@ class DeliveryWorker:
             or str(pr["base"]["repo"]["id"]) != policy.gitops_repository_id
             or str(pr["head"]["repo"]["id"]) != policy.gitops_repository_id
             or pr["head"]["ref"] != "aegis-requests/" + rid
-            or str(pr["user"]["id"]) not in policy.workflow_bot_user_ids
+            or str(pr["user"]["id"]) not in proposal_bots
             or pr["user"]["type"] != "Bot"
             or pr.get("draft")
             or pr["state"] != "open"
