@@ -70,7 +70,7 @@ def app_token(installation, repository_id, permissions):
         raise ValueError(f"App token minting failed HTTP {exc.code}") from None
 
 
-def worker():
+def worker(*, propose=False):
     # Bind bootstrap discovery to the expected public control-plane identity. Reviewed
     # policy independently checks numeric IDs after discovery.
     token = app_token(
@@ -79,7 +79,14 @@ def worker():
         {"contents": "read", "issues": "read"},
     )
     platform = GitHubAPI(token, "prasanthece42/aegis-platform")
-    gitops = GitHubAPI(os.environ["GH_TOKEN"], "prasanthece42/aegis-gitops")
+    gitops_token = os.environ["GH_TOKEN"]
+    if propose:
+        gitops_token = app_token(
+            os.environ["AEGIS_GITOPS_INSTALLATION_ID"],
+            "1433742863",
+            {"contents": "write", "pull_requests": "write", "actions": "write", "statuses": "read"},
+        )
+    gitops = GitHubAPI(gitops_token, "prasanthece42/aegis-gitops")
 
     def source(entry):
         scoped = app_token(
@@ -103,7 +110,7 @@ def main():
     parser.add_argument("--issue-number", type=int)
     parser.add_argument("--pr-number", type=int)
     args = parser.parse_args()
-    engine = worker()
+    engine = worker(propose=args.command == "propose")
     if args.command == "check-run":
         sha = os.environ.get("RUN_HEAD_SHA", "")
         branch = os.environ.get("RUN_HEAD_BRANCH", "")
@@ -185,7 +192,7 @@ def main():
         )
         # Auto-merge only DEV, and only through enforced required checks. Protected
         # branches receive an ordinary PR; this process never submits a review or sync.
-        if pr["base"]["ref"] == "main":
+        if pr["base"]["ref"] == "main" and not pr.get("auto_merge"):
             merged = engine.gitops.call(
                 "POST",
                 "/graphql",
