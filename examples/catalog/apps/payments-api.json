@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "app_id": "payments-api",
+  "display_name": "payments-api",
+  "source": {
+    "repository_id": "102",
+    "installation_id": "201",
+    "owner": "example",
+    "name": "payments-api",
+    "default_branch": "main"
+  },
+  "access": {
+    "owner_user_ids": [
+      "301"
+    ],
+    "viewer_user_ids": [],
+    "deployer_user_ids_by_environment": {
+      "dev": [
+        "301"
+      ]
+    }
+  },
+  "runtime": {
+    "profile_id": "python312-web",
+    "container_port": 8000,
+    "health_path": "/health",
+    "resource_profile_id": "small"
+  },
+  "versions": {
+    "workflow_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "helper_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "chart_version": "1.0.0",
+    "chart_sha256": "sha256:13c8977cb701a05fcff28fa6cf22067146ed56ad05d6ce760499a22e11f79570"
+  },
+  "environments": {
+    "dev": {
+      "delivery_mode": "manual",
+      "cluster_id": "example-kind",
+      "cluster_uid": "EXAMPLE-ONLY-NOT-ENROLLED",
+      "namespace": "aegis-payments-api-dev",
+      "argo_application": "payments-api-dev",
+      "argo_project": "payments-api-dev",
+      "gitops_repository_id": "401",
+      "gitops_branch": "main",
+      "values_path": "applications/payments-api/environments/dev/values.yaml",
+      "access_mapping_id": null
+    }
+  }
+}

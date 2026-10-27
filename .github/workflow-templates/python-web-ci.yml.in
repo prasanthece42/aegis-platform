@@ -1,0 +1,164 @@
+name: Aegis Python web CI
+
+on:
+  workflow_call:
+    inputs:
+      app-id:
+        type: string
+        required: true
+      platforms:
+        type: string
+        default: '["amd64"]'
+      container-port:
+        type: string
+        default: '8000'
+      health-path:
+        type: string
+        default: /health
+      export-candidate:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      platform_repository: ${{ steps.resolve.outputs.platform_repository }}
+      platform_commit: ${{ steps.resolve.outputs.platform_commit }}
+      platforms: ${{ steps.resolve.outputs.platforms }}
+    steps:
+      - name: Resolve immutable platform workflow and helper version
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AEGIS_APP_ID: ${{ inputs.app-id }}
+          AEGIS_PLATFORMS: ${{ inputs.platforms }}
+          AEGIS_PORT: ${{ inputs.container-port }}
+          AEGIS_HEALTH_PATH: ${{ inputs.health-path }}
+          AEGIS_EXPORT_CANDIDATE: ${{ inputs.export-candidate }}
+        shell: python
+        run: |
+__AEGIS_BOOTSTRAP__
+
+  checks:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ needs.prepare.outputs.platform_repository }}
+          ref: ${{ needs.prepare.outputs.platform_commit }}
+          path: platform
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - name: Install trusted helper dependencies
+        run: python -m pip install --require-hashes -r platform/requirements.txt
+      - name: Validate source in its own Python environment
+        run: python platform/tooling/ci.py checks --source source --venv "$RUNNER_TEMP/aegis-source-venv"
+      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.76.1
+          cache: true
+      - name: Scan source dependency lock
+        run: |
+          mkdir -p reports "$RUNNER_TEMP/aegis-lock-scan"
+          cp source/requirements.txt "$RUNNER_TEMP/aegis-lock-scan/requirements.txt"
+          trivy fs --scanners vuln --list-all-pkgs --format json --timeout 10m \
+            --output reports/dependencies.json "$RUNNER_TEMP/aegis-lock-scan"
+          python platform/tooling/ci.py scan-policy --report reports/dependencies.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ${{ inputs.app-id }}-dependencies-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/dependencies.json
+          retention-days: 14
+          if-no-files-found: warn
+
+  container:
+    needs: [prepare, checks]
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON(needs.prepare.outputs.platforms) }}
+    env:
+      APP_ID: ${{ inputs.app-id }}
+      SOURCE_SHA: ${{ github.sha }}
+      SOURCE_REPOSITORY: ${{ github.repository }}
+      CONTAINER_PORT: ${{ inputs.container-port }}
+      HEALTH_PATH: ${{ inputs.health-path }}
+      ARCH: ${{ matrix.arch }}
+      PLATFORM_COMMIT: ${{ needs.prepare.outputs.platform_commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ needs.prepare.outputs.platform_repository }}
+          ref: ${{ needs.prepare.outputs.platform_commit }}
+          path: platform
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - name: Install trusted helper dependencies
+        run: python -m pip install --require-hashes -r platform/requirements.txt
+      - name: Build source-labelled candidate
+        run: |
+          docker build --platform "linux/$ARCH" --provenance=false \
+            --tag "aegis-$APP_ID:$SOURCE_SHA" \
+            --label "io.aegis.app=$APP_ID" \
+            --label "org.opencontainers.image.source=https://github.com/$SOURCE_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$SOURCE_SHA" source
+      - name: Verify candidate runtime through the trusted helper
+        run: |
+          python platform/tooling/ci.py smoke --image "aegis-$APP_ID:$SOURCE_SHA" \
+            --port "$CONTAINER_PORT" --health-path "$HEALTH_PATH"
+      - name: Preserve exact tested candidate
+        run: |
+          mkdir -p candidate reports
+          docker save --output candidate/image.tar "aegis-$APP_ID:$SOURCE_SHA"
+          docker image inspect "aegis-$APP_ID:$SOURCE_SHA" > candidate/image-inspect.json
+      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.76.1
+          cache: true
+      - name: Scan candidate and generate SBOM
+        run: |
+          trivy image --input candidate/image.tar --scanners vuln --list-all-pkgs \
+            --format json --timeout 10m --output reports/image.json
+          python platform/tooling/ci.py scan-policy --report reports/image.json
+          trivy convert --format cyclonedx --output reports/sbom.cdx.json reports/image.json
+      - name: Bind candidate identity and exact scan/archive evidence
+        run: python platform/tooling/candidate.py
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ${{ inputs.app-id }}-image-reports-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: inputs.export-candidate
+        with:
+          name: ${{ inputs.app-id }}-candidate-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: candidate/
+          retention-days: 1
+          if-no-files-found: error

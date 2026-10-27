@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "status": "captured-local-baseline-not-a-cutover",
+  "app_id": "sample-api",
+  "source_repository": "prasanthece42/aegis-cicd",
+  "gitops_repository": "prasanthece42/aegis-gitops",
+  "approved_catalog_enrollment": false,
+  "environments": {
+    "dev": {
+      "namespace": "aegis-dev",
+      "argo_application": "sample-api-local",
+      "argo_project": "aegis-local",
+      "gitops_branch": "main"
+    },
+    "staging": {
+      "namespace": "aegis-staging",
+      "argo_application": "sample-api-staging-local",
+      "argo_project": "aegis-staging",
+      "gitops_branch": "staging"
+    },
+    "prod": {
+      "namespace": "aegis-prod",
+      "argo_application": "sample-api-prod-local",
+      "argo_project": "aegis-prod",
+      "gitops_branch": "prod"
+    }
+  },
+  "repositories": {
+    "aegis-cicd": {
+      "git_head": "5623846fc2e4ad4a89c7797ec9a71f2b0b87aea2",
+      "files": {
+        ".github/workflows/ci.yml": "0b3fa6fb5e5e481cf5d3b4af78f11ab1ba56a728ca80aaf2c7ae6387499c7a7b",
+        ".github/workflows/release.yml": "bc1e1ac0ab14e2fb0baef83230cb7ee9401105054b51af2497cdf135c0d500b6",
+        "Dockerfile": "7bed265446b3a3b96cb9f5c892c08c269e3490b555f95e771b206f1fc9273e20",
+        "app/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "app/main.py": "f144a26977d54f41ebb7f0b19a4d26ebae3d19fb6ef278159ae75fb4da5dee03",
+        "app/static/app.css": "c08a17e90b0b38c7e63a711b733a788f1f900ccad579bd50d048ee684162882a",
+        "app/static/app.js": "8635f3c7a82f8ae03ffb7b6ea5dab7904a78fe8ed4fb0c2399fb70ad402c357c",
+        "app/static/index.html": "49be3554cd0c14df06d0f2e6a98a4baa97d1f16875a78287c36108a7e6ebb0a2",
+        "config/argocd-version.json": "bff0c2a19d00f853953d59bb4c28f7b65f8a26289223c3555da4130027dea1c3",
+        "kind/cluster.yaml": "b4876a51b8a2a6d04bde755fbecd07e1eefa512c25530397929cf1ba1f0974b7",
+        "pyproject.toml": "489620bf86a4549fa5e5b9d51d8c00e38708209d960072ff6dabeea27afaf326",
+        "requirements-prod.txt": "bef4a742dfc1ffe7cb08d5aa6d2ecab682ca7aa12c0a0755922ed5ac36d6210f",
+        "requirements.txt": "82bdf5a953a42ddfd27a426c6fa7022adbb39dfab76c8b9aad6dbd9a8f9dfd57",
+        "scripts/__init__.py": "8715caafe9a6f61f1ea69ca872e4f1e4e99d82f78023ae19910528479b852d20",
+        "scripts/bootstrap-enterprise-local.sh": "b83cab38347266b52f7888cd733b9918c2fdeffe9f763404070ec0c7157d1ac4",
+        "scripts/bootstrap-local-k8s.sh": "43b1daa6082a851979a7b1572e1a6bcdf1380dddbeb1b465a5a0e39649f45ab3",
+        "scripts/bootstrap-local.sh": "43530cdddd2b9676bd4d584355782cdd3b7ac78fa37d858485d69d5948a77b97",
+        "scripts/configure-release-protection.py": "67496baf4075563a550e0069146c92f920d3229f53bce1dac71767ebb7565fff",
+        "scripts/connect-local-argocd.sh": "e42b264671127c40e9161a6dac2ea51ad8faf52ea0d294afc57cdf077351e0d7",
+        "scripts/environment_delivery.py": "65f48ff3dc7c0ed7456a15da876f59224136112b67b4d064c4c5544c9444c0bb",
+        "scripts/install-local-argocd.sh": "78c120803ee9d947a314e556c09dbd54d2324ae055c72c0d7bbc850be37074e5",
+        "scripts/kind-common.sh": "905aea62d69b12b7940ad27b7b41e04e02fd16956ddbee6a20ad6ac18ff783a7",
+        "scripts/load_release_bundle.py": "38dc4b5b8ca74ff2f54bfedebf38d73889f532f0ad4f1bd0ef4e104afeb4e3b3",
+        "scripts/oci_manifest.py": "0f97d727868412213423fabb65cc368d68e7365eaee04d315d6d53a566b3da56",
+        "scripts/port-forward-argocd.sh": "7e86b017e87f9d63f7bb500cfd58d08e99ca8aea730a0e86235df45c94fc577e",
+        "scripts/register-argocd-repository.sh": "df238a4c707a66c8df5ecbea0bfea38bc37e87415cc152f86afac523739268f3",
+        "scripts/release_evidence.py": "29e0203225c76d3848c03a6d33d51893a2c0c243f9ba66f1018e972f9ad91c2d",
+        "scripts/release_index.py": "7502796fbe75d394db7c25401720ee5609dfe73f979c88a3517844c872c47034",
+        "scripts/scan-security.sh": "78740f8152407e2856d5438cbfbea59cf647d5b219e882901613e55e8cf8db97",
+        "scripts/teardown-local-k8s.sh": "14ea4ad2faf1c5cdc852ece938fc7e27e58590008c8aa3be269994f6e9d521d1",
+        "scripts/verify-container.sh": "c691aa4f47ebbc9ddf93727be90b6bf76db876a9a3b8c5429b619c1a6761b74a",
+        "scripts/verify-gitops-flow.sh": "4cda5482728c42256537089282a869eb40add8c5086e9c45273305bf4a76d478",
+        "scripts/verify-kind-recovery.sh": "5e0841bd6579321e54aeef04d09db2d49641c5c5621e392b15c4daca48dce029",
+        "scripts/verify-local-argocd.sh": "697781015f6f8209114f89eb5f5904280ddf4d4894375bec4e18ddf6556be9bd",
+        "scripts/verify-local-k8s.sh": "a7871ed6dc3a240526b8c0009f79688835630e3d3faf14e99b27c9c2a3d1c315",
+        "scripts/verify-local.sh": "d0ac093a3dd4773c9d13bbe77501235fb092222370a1fc35bf26dd2ef7a0f75e",
+        "scripts/watch_local_delivery.py": "f8a5d93a70c472a162a677506ee3dfe8fad72b17089bd7c886f2ac8b792e032d"
+      }
+    },
+    "aegis-gitops": {
+      "git_head": "5bcc99dec1d127ade7f750c4ac7125b9788d1af0",
+      "files": {
+        ".github/CODEOWNERS": "2abfec157efac090b1696a45e3098097d785796bb3432a9f775d1abb4672aad5",
+        ".github/workflows/promote.yml": "d34272039ca174985fd55f5ecee8430a7b880d64a30e79faad0463f18fd2b4c5",
+        ".github/workflows/validate.yml": "790dba1e9fc7ddae4c91154d82f5d979cadb609e421214973dfff820d8e4230c",
+        "argocd/applications/sample-api-local.yaml": "816ba2ccf7b7aed6c2154e12bee65d66f956389bfe8db1198de73eaea4fee0ab",
+        "argocd/applications/sample-api-prod-local.yaml": "18117b2d14774f55818e911fc06dad1f1b808f65d01a4fc1008c222c861a0a1c",
+        "argocd/applications/sample-api-staging-local.yaml": "ae8a2e08df05c4b3cdf3631399ca300f22cee0939a0896fa22eac0967be65b27",
+        "argocd/config/argocd-cm.yaml": "28ca82b6717d84eb62e8c921d94eee0ba92c0308112dfe62a45c9d190b6793d6",
+        "argocd/projects/aegis-local.yaml": "44e1862a1347d5dbbf15214d8c13eab0d262ad1c075ff5db93e5d27c1379a61b",
+        "argocd/projects/aegis-prod.yaml": "ee2166220b8970b8e21e8de801f98407f876cef507c86ea960564137bcf69d57",
+        "argocd/projects/aegis-staging.yaml": "e87e0e3f61cd977ea403c2b983db927f1131e737b19e5383d79f483c287d9ad6",
+        "argocd/projects/default-deny.yaml": "7fa6781482a67f07d995415cbcdf90cdf24f58b3242ece1303c066bcb04ad850",
+        "charts/sample-api/.helmignore": "3a9efd1eab81bc1e26cbd61c2e7a85c69ee27d8da1296cb389fe5bb9abc34e86",
+        "charts/sample-api/Chart.yaml": "8df1cec1968c658893a986101325ae4623a14ccbbfaaa5dd4810d5e419a5139c",
+        "charts/sample-api/templates/NOTES.txt": "b7c5e710a266ecc097a1c3904afc3ef071be3e86cb3e03ce66bf49349663115b",
+        "charts/sample-api/templates/_helpers.tpl": "9215a0e1b9ae9a3aa2384434d633a2aa88946a758a97a756a5486ef23b34bf3c",
+        "charts/sample-api/templates/deployment.yaml": "63feb52218180eb74da46acacd9a0739020786011713bdc06ecfd092d59e0107",
+        "charts/sample-api/templates/service.yaml": "9d2f1afc394bf5d0050a60cb3da46f21c3213589819c65fd9588397fc377de84",
+        "charts/sample-api/templates/serviceaccount.yaml": "742984c4c80372219cad49e221f46a67d5b928c572dd3a698caef554ec2ba39b",
+        "charts/sample-api/values.schema.json": "1894f36cf4a95359bd4d3b04615c1eed1e1147bb16199800d99e1274813855bf",
+        "charts/sample-api/values.yaml": "93ff02f89061cf6956496eac2200c14fdf0174fe01d45c8a3718fb8bd7984cd9",
+        "environments/cluster-kind/values.yaml": "b7bfbf80132542c80932a5bb69bfd74312f7b127759460e99cab59acacfc4689",
+        "environments/dev/namespace.yaml": "136f6408863d3c43bf3689644c41f9236a1ac6f20460d5cb91e4559f68f399db",
+        "environments/dev/release.json": "43e05d6dc5ab33981157347243acae75a219a17fefa2be00ca9acd63bf18eee0",
+        "environments/dev/values.yaml": "d275652ea112231521953a6b73ca0adc6511f04558bef8a716879efdc6ad56fc",
+        "environments/local/values.yaml": "15bbcae9e8fb3e4ddf3cb69f74c9b5d2820f42ed85a47950b4334d5bdd8eaa64",
+        "environments/prod/namespace.yaml": "016e93fd99f7d89d1dbab744a6836c46752829932193ffddf035f0b7d207d020",
+        "environments/prod/values.yaml": "aa95979546f82556c14f29b58b4de686aad3282a2d958f5c18da862638f84e30",
+        "environments/staging/namespace.yaml": "382f6dd21440211179a838581259103676b84306ddb79d918820932f5f8d6dc6",
+        "environments/staging/values.yaml": "75d0ffb298baa039594d4e6221bb29ed5b912a87215a3bd9f805bbf86a490da7",
+        "policies/release.json": "bb2a26b617d8928dbcbbd2700751ea3f6d375d01453c4c1005f18b330f08a03a",
+        "pyproject.toml": "2fd64bd86f1f51cf415815696b353bd4c3f189aa00f743514cd68509de40bd8a",
+        "scripts/promotion.py": "87d47bbcec892b5eb67c2cdcaf53a40c2895956d7ddeb0738d78409375034469",
+        "scripts/validate-chart.sh": "5a131d0433113ed6e5a8be8469b4783735771a40f5eb0061dafb3ac0d12bcc6c"
+      }
+    }
+  }
+}

@@ -1,0 +1,285 @@
+name: Aegis Python web CI
+
+on:
+  workflow_call:
+    inputs:
+      app-id:
+        type: string
+        required: true
+      platforms:
+        type: string
+        default: '["amd64"]'
+      container-port:
+        type: string
+        default: '8000'
+      health-path:
+        type: string
+        default: /health
+      export-candidate:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      platform_repository: ${{ steps.resolve.outputs.platform_repository }}
+      platform_commit: ${{ steps.resolve.outputs.platform_commit }}
+      platforms: ${{ steps.resolve.outputs.platforms }}
+    steps:
+      - name: Resolve immutable platform workflow and helper version
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AEGIS_APP_ID: ${{ inputs.app-id }}
+          AEGIS_PLATFORMS: ${{ inputs.platforms }}
+          AEGIS_PORT: ${{ inputs.container-port }}
+          AEGIS_HEALTH_PATH: ${{ inputs.health-path }}
+          AEGIS_EXPORT_CANDIDATE: ${{ inputs.export-candidate }}
+        shell: python
+        run: |
+          """Resolve reusable helpers from GitHub run metadata, never a caller-supplied helper ref."""
+
+          import hashlib
+          import json
+          import os
+          import re
+          import sys
+          from pathlib import Path
+          from urllib.parse import unquote, urlsplit
+          from urllib.request import Request, urlopen
+
+          PLATFORM_REPOSITORY = "prasanthece42/aegis-platform"
+          WORKFLOW = "python-web-ci.yml"
+
+
+          def resolve_workflow_commit(run: dict, repository: str, workflow: str) -> str:
+              prefix = repository + "/.github/workflows/" + workflow + "@"
+              matches = [
+                  item for item in run.get("referenced_workflows", []) if item["path"].startswith(prefix)
+              ]
+              if not matches:
+                  raise ValueError("Run metadata does not identify the expected reusable workflow")
+              commits = set()
+              for item in matches:
+                  sha = item["sha"]
+                  if not re.fullmatch(r"[0-9a-f]{40}", sha) or item["path"] != prefix + sha:
+                      raise ValueError("Reusable workflows and their helpers must be pinned to a full commit")
+                  commits.add(sha)
+              if len(commits) != 1:
+                  raise ValueError("Run metadata contains conflicting platform workflow versions")
+              return commits.pop()
+
+
+          def validate_inputs(app_id: str, platforms: str, port: str, health_path: str) -> list[str]:
+              if not re.fullmatch(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*", app_id) or not 3 <= len(app_id) <= 40:
+                  raise ValueError("Unsupported application ID")
+              archs = json.loads(platforms)
+              if (
+                  not isinstance(archs, list)
+                  or not 1 <= len(archs) <= 2
+                  or any(a not in {"amd64", "arm64"} for a in archs)
+                  or len(archs) != len(set(archs))
+              ):
+                  raise ValueError("Select one or both supported CPU architectures without duplicates")
+              if not port.isdecimal() or not 1 <= int(port) <= 65535:
+                  raise ValueError("Invalid container port")
+              decoded = unquote(health_path)
+              parsed = urlsplit(decoded)
+              if (
+                  not decoded.startswith("/")
+                  or decoded.startswith("//")
+                  or len(health_path) > 200
+                  or parsed.scheme
+                  or parsed.netloc
+                  or parsed.query
+                  or parsed.fragment
+                  or "?" in decoded
+                  or "#" in decoded
+                  or "\\" in decoded
+                  or "%" in decoded
+                  or any(ord(c) < 33 or ord(c) == 127 for c in decoded)
+                  or any(part in {".", ".."} for part in decoded.split("/"))
+              ):
+                  raise ValueError("Unsupported health path for the Python web CI profile")
+              return archs
+
+
+          def main():
+              if os.environ["GITHUB_SERVER_URL"] != "https://github.com":
+                  raise ValueError("This workflow supports github.com only")
+              caller = os.environ["GITHUB_REPOSITORY"]
+              run_id = os.environ["GITHUB_RUN_ID"]
+              attempt = os.environ["GITHUB_RUN_ATTEMPT"]
+              if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", caller) or not run_id.isdecimal():
+                  raise ValueError("Invalid GitHub workflow context")
+              archs = validate_inputs(
+                  os.environ["AEGIS_APP_ID"],
+                  os.environ["AEGIS_PLATFORMS"],
+                  os.environ["AEGIS_PORT"],
+                  os.environ["AEGIS_HEALTH_PATH"],
+              )
+              request = Request(
+                  f"https://api.github.com/repos/{caller}/actions/runs/{run_id}",
+                  headers={
+                      "Authorization": "Bearer " + os.environ["GH_TOKEN"],
+                      "Accept": "application/vnd.github+json",
+                      "X-GitHub-Api-Version": "2026-03-10",
+                  },
+              )
+              with urlopen(request, timeout=20) as response:
+                  raw = response.read(2 * 1024 * 1024 + 1)
+              if len(raw) > 2 * 1024 * 1024:
+                  raise ValueError("Run metadata exceeds budget")
+              run = json.loads(raw)
+              if (
+                  str(run["id"]) != run_id
+                  or str(run["run_attempt"]) != attempt
+                  or str(run["repository"]["id"]) != os.environ["GITHUB_REPOSITORY_ID"]
+              ):
+                  raise ValueError("Run metadata does not match this caller and attempt")
+              sha = resolve_workflow_commit(run, PLATFORM_REPOSITORY, WORKFLOW)
+              event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_bytes())
+              if os.environ["AEGIS_EXPORT_CANDIDATE"] == "true" and (
+                  os.environ["GITHUB_EVENT_NAME"] not in {"push", "workflow_dispatch"}
+                  or os.environ["GITHUB_REF"] != "refs/heads/" + event["repository"]["default_branch"]
+              ):
+                  raise ValueError("Candidate export requires a trusted default-branch event")
+              # Testable evidence linking this bootstrapped source to the resolved immutable workflow.
+              with Path(os.environ["GITHUB_OUTPUT"]).open("a") as output:
+                  output.write(f"platform_repository={PLATFORM_REPOSITORY}\nplatform_commit={sha}\n")
+                  output.write("platforms=" + json.dumps(archs, separators=(",", ":")) + "\n")
+                  output.write(
+                      "bootstrap_sha256=" + hashlib.sha256(Path(__file__).read_bytes()).hexdigest() + "\n"
+                  )
+
+
+          if __name__ == "__main__":
+              try:
+                  main()
+              except (ValueError, KeyError, OSError, TypeError) as exc:
+                  print(f"Platform bootstrap refused: {exc}", file=sys.stderr)
+                  raise SystemExit(1) from None
+
+  checks:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ needs.prepare.outputs.platform_repository }}
+          ref: ${{ needs.prepare.outputs.platform_commit }}
+          path: platform
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - name: Install trusted helper dependencies
+        run: python -m pip install --require-hashes -r platform/requirements.txt
+      - name: Validate source in its own Python environment
+        run: python platform/tooling/ci.py checks --source source --venv "$RUNNER_TEMP/aegis-source-venv"
+      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.76.1
+          cache: true
+      - name: Scan source dependency lock
+        run: |
+          mkdir -p reports "$RUNNER_TEMP/aegis-lock-scan"
+          cp source/requirements.txt "$RUNNER_TEMP/aegis-lock-scan/requirements.txt"
+          trivy fs --scanners vuln --list-all-pkgs --format json --timeout 10m \
+            --output reports/dependencies.json "$RUNNER_TEMP/aegis-lock-scan"
+          python platform/tooling/ci.py scan-policy --report reports/dependencies.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ${{ inputs.app-id }}-dependencies-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/dependencies.json
+          retention-days: 14
+          if-no-files-found: warn
+
+  container:
+    needs: [prepare, checks]
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON(needs.prepare.outputs.platforms) }}
+    env:
+      APP_ID: ${{ inputs.app-id }}
+      SOURCE_SHA: ${{ github.sha }}
+      SOURCE_REPOSITORY: ${{ github.repository }}
+      CONTAINER_PORT: ${{ inputs.container-port }}
+      HEALTH_PATH: ${{ inputs.health-path }}
+      ARCH: ${{ matrix.arch }}
+      PLATFORM_COMMIT: ${{ needs.prepare.outputs.platform_commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ needs.prepare.outputs.platform_repository }}
+          ref: ${{ needs.prepare.outputs.platform_commit }}
+          path: platform
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - name: Install trusted helper dependencies
+        run: python -m pip install --require-hashes -r platform/requirements.txt
+      - name: Build source-labelled candidate
+        run: |
+          docker build --platform "linux/$ARCH" --provenance=false \
+            --tag "aegis-$APP_ID:$SOURCE_SHA" \
+            --label "io.aegis.app=$APP_ID" \
+            --label "org.opencontainers.image.source=https://github.com/$SOURCE_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$SOURCE_SHA" source
+      - name: Verify candidate runtime through the trusted helper
+        run: |
+          python platform/tooling/ci.py smoke --image "aegis-$APP_ID:$SOURCE_SHA" \
+            --port "$CONTAINER_PORT" --health-path "$HEALTH_PATH"
+      - name: Preserve exact tested candidate
+        run: |
+          mkdir -p candidate reports
+          docker save --output candidate/image.tar "aegis-$APP_ID:$SOURCE_SHA"
+          docker image inspect "aegis-$APP_ID:$SOURCE_SHA" > candidate/image-inspect.json
+      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.76.1
+          cache: true
+      - name: Scan candidate and generate SBOM
+        run: |
+          trivy image --input candidate/image.tar --scanners vuln --list-all-pkgs \
+            --format json --timeout 10m --output reports/image.json
+          python platform/tooling/ci.py scan-policy --report reports/image.json
+          trivy convert --format cyclonedx --output reports/sbom.cdx.json reports/image.json
+      - name: Bind candidate identity and exact scan/archive evidence
+        run: python platform/tooling/candidate.py
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ${{ inputs.app-id }}-image-reports-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: inputs.export-candidate
+        with:
+          name: ${{ inputs.app-id }}-candidate-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: candidate/
+          retention-days: 1
+          if-no-files-found: error

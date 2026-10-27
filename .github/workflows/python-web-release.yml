@@ -1,0 +1,342 @@
+name: Aegis Python web release
+
+on:
+  workflow_call:
+    inputs:
+      app-id:
+        type: string
+        required: true
+      container-port:
+        type: string
+        default: '8000'
+      health-path:
+        type: string
+        default: /health
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: aegis-release-${{ github.repository_id }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      platform_repository: ${{ steps.resolve.outputs.platform_repository }}
+      platform_commit: ${{ steps.resolve.outputs.platform_commit }}
+    steps:
+      - name: Resolve pinned release helpers and require a default-branch event
+        id: resolve
+        shell: python
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AEGIS_APP_ID: ${{ inputs.app-id }}
+          AEGIS_PLATFORMS: '["amd64","arm64"]'
+          AEGIS_PORT: ${{ inputs.container-port }}
+          AEGIS_HEALTH_PATH: ${{ inputs.health-path }}
+          AEGIS_EXPORT_CANDIDATE: 'true'
+        run: |
+          """Resolve reusable helpers from GitHub run metadata, never a caller-supplied helper ref."""
+
+          import hashlib
+          import json
+          import os
+          import re
+          import sys
+          from pathlib import Path
+          from urllib.parse import unquote, urlsplit
+          from urllib.request import Request, urlopen
+
+          PLATFORM_REPOSITORY = "prasanthece42/aegis-platform"
+          WORKFLOW = "python-web-release.yml"
+
+
+          def resolve_workflow_commit(run: dict, repository: str, workflow: str) -> str:
+              prefix = repository + "/.github/workflows/" + workflow + "@"
+              matches = [
+                  item for item in run.get("referenced_workflows", []) if item["path"].startswith(prefix)
+              ]
+              if not matches:
+                  raise ValueError("Run metadata does not identify the expected reusable workflow")
+              commits = set()
+              for item in matches:
+                  sha = item["sha"]
+                  if not re.fullmatch(r"[0-9a-f]{40}", sha) or item["path"] != prefix + sha:
+                      raise ValueError("Reusable workflows and their helpers must be pinned to a full commit")
+                  commits.add(sha)
+              if len(commits) != 1:
+                  raise ValueError("Run metadata contains conflicting platform workflow versions")
+              return commits.pop()
+
+
+          def validate_inputs(app_id: str, platforms: str, port: str, health_path: str) -> list[str]:
+              if not re.fullmatch(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*", app_id) or not 3 <= len(app_id) <= 40:
+                  raise ValueError("Unsupported application ID")
+              archs = json.loads(platforms)
+              if (
+                  not isinstance(archs, list)
+                  or not 1 <= len(archs) <= 2
+                  or any(a not in {"amd64", "arm64"} for a in archs)
+                  or len(archs) != len(set(archs))
+              ):
+                  raise ValueError("Select one or both supported CPU architectures without duplicates")
+              if not port.isdecimal() or not 1 <= int(port) <= 65535:
+                  raise ValueError("Invalid container port")
+              decoded = unquote(health_path)
+              parsed = urlsplit(decoded)
+              if (
+                  not decoded.startswith("/")
+                  or decoded.startswith("//")
+                  or len(health_path) > 200
+                  or parsed.scheme
+                  or parsed.netloc
+                  or parsed.query
+                  or parsed.fragment
+                  or "?" in decoded
+                  or "#" in decoded
+                  or "\\" in decoded
+                  or "%" in decoded
+                  or any(ord(c) < 33 or ord(c) == 127 for c in decoded)
+                  or any(part in {".", ".."} for part in decoded.split("/"))
+              ):
+                  raise ValueError("Unsupported health path for the Python web CI profile")
+              return archs
+
+
+          def main():
+              if os.environ["GITHUB_SERVER_URL"] != "https://github.com":
+                  raise ValueError("This workflow supports github.com only")
+              caller = os.environ["GITHUB_REPOSITORY"]
+              run_id = os.environ["GITHUB_RUN_ID"]
+              attempt = os.environ["GITHUB_RUN_ATTEMPT"]
+              if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", caller) or not run_id.isdecimal():
+                  raise ValueError("Invalid GitHub workflow context")
+              archs = validate_inputs(
+                  os.environ["AEGIS_APP_ID"],
+                  os.environ["AEGIS_PLATFORMS"],
+                  os.environ["AEGIS_PORT"],
+                  os.environ["AEGIS_HEALTH_PATH"],
+              )
+              request = Request(
+                  f"https://api.github.com/repos/{caller}/actions/runs/{run_id}",
+                  headers={
+                      "Authorization": "Bearer " + os.environ["GH_TOKEN"],
+                      "Accept": "application/vnd.github+json",
+                      "X-GitHub-Api-Version": "2026-03-10",
+                  },
+              )
+              with urlopen(request, timeout=20) as response:
+                  raw = response.read(2 * 1024 * 1024 + 1)
+              if len(raw) > 2 * 1024 * 1024:
+                  raise ValueError("Run metadata exceeds budget")
+              run = json.loads(raw)
+              if (
+                  str(run["id"]) != run_id
+                  or str(run["run_attempt"]) != attempt
+                  or str(run["repository"]["id"]) != os.environ["GITHUB_REPOSITORY_ID"]
+              ):
+                  raise ValueError("Run metadata does not match this caller and attempt")
+              sha = resolve_workflow_commit(run, PLATFORM_REPOSITORY, WORKFLOW)
+              event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_bytes())
+              if os.environ["AEGIS_EXPORT_CANDIDATE"] == "true" and (
+                  os.environ["GITHUB_EVENT_NAME"] not in {"push", "workflow_dispatch"}
+                  or os.environ["GITHUB_REF"] != "refs/heads/" + event["repository"]["default_branch"]
+              ):
+                  raise ValueError("Candidate export requires a trusted default-branch event")
+              # Testable evidence linking this bootstrapped source to the resolved immutable workflow.
+              with Path(os.environ["GITHUB_OUTPUT"]).open("a") as output:
+                  output.write(f"platform_repository={PLATFORM_REPOSITORY}\nplatform_commit={sha}\n")
+                  output.write("platforms=" + json.dumps(archs, separators=(",", ":")) + "\n")
+                  output.write(
+                      "bootstrap_sha256=" + hashlib.sha256(Path(__file__).read_bytes()).hexdigest() + "\n"
+                  )
+
+
+          if __name__ == "__main__":
+              try:
+                  main()
+              except (ValueError, KeyError, OSError, TypeError) as exc:
+                  print(f"Platform bootstrap refused: {exc}", file=sys.stderr)
+                  raise SystemExit(1) from None
+
+  validate:
+    needs: prepare
+    uses: ./.github/workflows/python-web-ci.yml
+    permissions:
+      contents: read
+      actions: read
+    with:
+      app-id: ${{ inputs.app-id }}
+      platforms: '["amd64","arm64"]'
+      container-port: ${{ inputs.container-port }}
+      health-path: ${{ inputs.health-path }}
+      export-candidate: true
+
+  publish:
+    needs: [prepare, validate]
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+    env:
+      APP_ID: ${{ inputs.app-id }}
+      SOURCE_SHA: ${{ github.sha }}
+      SOURCE_REPOSITORY: ${{ github.repository }}
+      PLATFORM_COMMIT: ${{ needs.prepare.outputs.platform_commit }}
+      ARCH: ${{ matrix.arch }}
+      CONTAINER_PORT: ${{ inputs.container-port }}
+      HEALTH_PATH: ${{ inputs.health-path }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ needs.prepare.outputs.platform_repository }}
+          ref: ${{ needs.prepare.outputs.platform_commit }}
+          path: platform
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --require-hashes -r platform/requirements.txt
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ inputs.app-id }}-candidate-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: candidate
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ inputs.app-id }}-dependencies-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ inputs.app-id }}-image-reports-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports
+      - name: Verify downloaded candidate bytes and source evidence
+        id: candidate
+        run: python platform/tooling/release.py verify-candidate
+      - name: Inspect actual loaded image without executing app-owned scripts
+        env:
+          CANDIDATE_ID: ${{ steps.candidate.outputs.image_id }}
+        run: |
+          docker load --input candidate/image.tar
+          docker image inspect "$CANDIDATE_ID" > reports/loaded-image.json
+          python platform/tooling/release.py verify-loaded
+          image="ghcr.io/${SOURCE_REPOSITORY,,}"
+          tag="sha-${SOURCE_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${ARCH}"
+          echo "IMAGE_NAME=$image" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=$image:$tag" >> "$GITHUB_ENV"
+          docker tag "$CANDIDATE_ID" "$image:$tag"
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Publish OCI platform manifest preserving tested config/layers
+        run: |
+          curl --fail --silent --show-error --location \
+            "https://github.com/regclient/regclient/releases/download/v0.11.7/regctl-linux-$ARCH" \
+            --output "$RUNNER_TEMP/regctl"
+          if [[ "$ARCH" == amd64 ]]; then
+            checksum=3737fbbdd791e04e7a831640b681f3397a376498e80e2ad9b1b2d27296f239bc
+          else
+            checksum=9f349bab5c407ac04f3dabf99c7c7a6b0f9e9723c23f2775380e804d02c6dbb9
+          fi
+          echo "$checksum  $RUNNER_TEMP/regctl" | sha256sum --check
+          chmod +x "$RUNNER_TEMP/regctl"
+          docker push "$IMAGE_TAG"
+          docker buildx imagetools inspect "$IMAGE_TAG" --raw > reports/docker-manifest.json
+          python platform/tooling/oci_manifest.py < reports/docker-manifest.json > reports/oci-manifest.json
+          "$RUNNER_TEMP/regctl" manifest put --content-type application/vnd.oci.image.manifest.v1+json \
+            "$IMAGE_TAG" < reports/oci-manifest.json
+          digest=$(docker buildx imagetools inspect "$IMAGE_TAG" --format '{{.Manifest.Digest}}')
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          echo "PUBLISHED_DIGEST=$digest" >> "$GITHUB_ENV"
+          docker pull "$IMAGE_NAME@$digest"
+          docker image inspect "$IMAGE_NAME@$digest" > reports/pulled-image.json
+      - name: Verify exact digest runtime then record platform publication
+        run: |
+          python platform/tooling/ci.py smoke --image "$IMAGE_NAME@$PUBLISHED_DIGEST" \
+            --port "$CONTAINER_PORT" --health-path "$HEALTH_PATH"
+          python platform/tooling/release.py write-platform
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ${{ inputs.app-id }}-published-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/
+          retention-days: 30
+          if-no-files-found: warn
+
+  release-index:
+    needs: [prepare, publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: write
+      actions: read
+      packages: write
+    env:
+      APP_ID: ${{ inputs.app-id }}
+      SOURCE_SHA: ${{ github.sha }}
+      SOURCE_REPOSITORY: ${{ github.repository }}
+      PLATFORM_COMMIT: ${{ needs.prepare.outputs.platform_commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ needs.prepare.outputs.platform_repository }}
+          ref: ${{ needs.prepare.outputs.platform_commit }}
+          path: platform
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --require-hashes -r platform/requirements.txt
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: ${{ inputs.app-id }}-published-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: platform-evidence
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Combine only verified immutable platform references
+        run: |
+          python platform/tooling/release.py index-inputs
+      - name: Publish multi-platform index without rebuilding
+        run: |
+          mkdir -p reports
+          docker buildx imagetools create --tag "$IMAGE_TAG" "$AMD64_REFERENCE" "$ARM64_REFERENCE"
+          digest=$(docker buildx imagetools inspect "$IMAGE_TAG" --format '{{.Manifest.Digest}}')
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          echo "PUBLISHED_DIGEST=$digest" >> "$GITHUB_ENV"
+      - name: Export exact OCI root and all referenced content
+        run: |
+          image="ghcr.io/${SOURCE_REPOSITORY,,}"
+          docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --tmpfs /tmp:rw,noexec,nosuid,size=16m --user "$(id -u):$(id -g)" \
+            --volume "${DOCKER_CONFIG:-$HOME/.docker}/config.json:/auth.json:ro" \
+            --volume "$PWD/reports:/out" \
+            quay.io/skopeo/stable:v1.21.0@sha256:a585e4a3b8a045baa87c7f1b2f940d6d299ebede85ab3f2419d52d2264eefc93 \
+            copy --all --preserve-digests --authfile /auth.json \
+            "docker://$image@$PUBLISHED_DIGEST" "oci-archive:/out/image.oci.tar:aegis-release"
+          python platform/tooling/release.py assemble
+      - name: Verify draft asset bytes before publishing the source release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python platform/tooling/release.py publish
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ${{ inputs.app-id }}-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/release.json
+          retention-days: 30
+          if-no-files-found: warn

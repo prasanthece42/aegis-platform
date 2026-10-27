@@ -1,0 +1,53 @@
+name: Platform CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: src
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --require-hashes -r requirements.txt
+      - name: Install checksum-pinned Helm for chart tests
+        run: |
+          mkdir -p "$RUNNER_TEMP/aegis-tools"
+          cd "$RUNNER_TEMP/aegis-tools"
+          curl --fail --silent --show-error --location \
+            https://get.helm.sh/helm-v4.2.4-linux-amd64.tar.gz --output helm.tar.gz
+          echo 'c306b46f719b0a4da32d0f78ee21bf90ce8d602f15b22ab753f0674d1670a7f3  helm.tar.gz' | sha256sum --check
+          tar -xzf helm.tar.gz linux-amd64/helm
+          echo "$RUNNER_TEMP/aegis-tools/linux-amd64" >> "$GITHUB_PATH"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: python -m pytest -q
+      - name: Keep existing chart versions immutable
+        env:
+          CHART_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: python tooling/check_chart_versions.py
+      - run: python -m aegis_platform validate
+      - name: Validate example catalog separately from active enrollments
+        run: python -m aegis_platform --catalog examples/catalog validate
+      - name: Verify generated contracts and reusable workflow
+        run: |
+          python -m aegis_platform export-schemas
+          python tooling/render_workflows.py
+          python -m aegis_platform chart-identity > charts/web-service/manifest.v1.json
+          git diff --exit-code -- schemas charts/web-service/manifest.v1.json .github/workflows/python-web-ci.yml .github/workflows/python-web-release.yml
+      - name: Build the shared contract package
+        run: python -m hatchling build -t wheel

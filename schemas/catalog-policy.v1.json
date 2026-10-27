@@ -1,0 +1,68 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "resource_profile_ids": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Resource Profile Ids",
+      "type": "array"
+    },
+    "runtime_profile_ids": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Runtime Profile Ids",
+      "type": "array"
+    },
+    "environment_branches": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "propertyNames": {
+        "enum": [
+          "dev",
+          "staging",
+          "prod"
+        ]
+      },
+      "title": "Environment Branches",
+      "type": "object"
+    },
+    "production_human_review_required": {
+      "const": true,
+      "title": "Production Human Review Required",
+      "type": "boolean"
+    },
+    "protected_sync_mode": {
+      "const": "operator",
+      "title": "Protected Sync Mode",
+      "type": "string"
+    },
+    "max_applications": {
+      "maximum": 1000,
+      "minimum": 1,
+      "title": "Max Applications",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema_version",
+    "resource_profile_ids",
+    "runtime_profile_ids",
+    "environment_branches",
+    "production_human_review_required",
+    "protected_sync_mode",
+    "max_applications"
+  ],
+  "title": "CatalogPolicy",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

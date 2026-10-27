@@ -1,0 +1,104 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "app_id": {
+      "maxLength": 40,
+      "minLength": 3,
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+      "title": "App Id",
+      "type": "string"
+    },
+    "source_repository": {
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+      "title": "Source Repository",
+      "type": "string"
+    },
+    "source_repository_id": {
+      "maxLength": 24,
+      "pattern": "^[1-9][0-9]*$",
+      "title": "Source Repository Id",
+      "type": "string"
+    },
+    "source_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Source Commit",
+      "type": "string"
+    },
+    "workflow_run_id": {
+      "maxLength": 24,
+      "pattern": "^[1-9][0-9]*$",
+      "title": "Workflow Run Id",
+      "type": "string"
+    },
+    "run_attempt": {
+      "maxLength": 24,
+      "pattern": "^[1-9][0-9]*$",
+      "title": "Run Attempt",
+      "type": "string"
+    },
+    "platform_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Platform Commit",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "platform": {
+      "enum": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "title": "Platform",
+      "type": "string"
+    },
+    "image": {
+      "title": "Image",
+      "type": "string"
+    },
+    "image_config_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Image Config Digest",
+      "type": "string"
+    },
+    "candidate_archive_sha256": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Candidate Archive Sha256",
+      "type": "string"
+    },
+    "digest_pull_smoke_test": {
+      "const": "passed",
+      "title": "Digest Pull Smoke Test",
+      "type": "string"
+    },
+    "evidence_sha256": {
+      "additionalProperties": {
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "title": "Evidence Sha256",
+      "type": "object"
+    }
+  },
+  "required": [
+    "app_id",
+    "source_repository",
+    "source_repository_id",
+    "source_commit",
+    "workflow_run_id",
+    "run_attempt",
+    "platform_commit",
+    "platform",
+    "image",
+    "image_config_digest",
+    "candidate_archive_sha256",
+    "digest_pull_smoke_test",
+    "evidence_sha256"
+  ],
+  "title": "PublishedPlatform",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

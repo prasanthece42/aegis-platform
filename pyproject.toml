@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "aegis-platform"
+version = "0.3.0"
+description = "Aegis shared application catalog, contracts and CI helpers"
+requires-python = ">=3.12,<3.13"
+dependencies = ["pydantic>=2.14,<3", "rfc8785==0.1.4"]
+
+[project.scripts]
+aegis-platform = "aegis_platform.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=9,<10", "ruff>=0.17,<1", "pyyaml>=6,<7", "hatchling>=1.27,<2"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/aegis_platform"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

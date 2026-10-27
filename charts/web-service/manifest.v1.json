@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "version": "1.0.0",
+  "sha256": "sha256:13c8977cb701a05fcff28fa6cf22067146ed56ad05d6ce760499a22e11f79570",
+  "files": {
+    "Chart.yaml": "af3faa6349780fe24f382b6958033c2cd388bc761830f988891da580f188b62f",
+    "templates/_helpers.tpl": "3ef25d0862f9f807131f2a94f67bc3dff5bd926a85594df6801995bd8a0bb311",
+    "templates/deployment.yaml": "c957ca66a75d6f80da84fe41627ed3a14ef851eddf86b1ff87d669071a8b44d1",
+    "templates/service.yaml": "35347ea9875262f59703b855343cdaef6c88866991f878bbeb79a263a92d5157",
+    "templates/serviceaccount.yaml": "425ecc6c2d66c6cd0df466b861a8ecadfe54da71681b23260fc41b6131ab2a91",
+    "values.schema.json": "a104a7629efefed91a77303d83f9364e402e7fbd2bcb47b787ebaae290f372f5",
+    "values.yaml": "778f8328c30a5481d4e3d3d557eca6a30211cf2609818e27e0674cd4fb78123b"
+  }
+}

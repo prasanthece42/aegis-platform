@@ -1,0 +1,6 @@
+{
+  "gitops_repository": "example/aegis-gitops",
+  "gitops_repository_id": "401",
+  "cluster_id": "example-kind",
+  "cluster_uid": "EXAMPLE-ONLY-NOT-ENROLLED"
+}

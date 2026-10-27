@@ -1,0 +1,41 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "cluster_id": {
+      "pattern": "^[a-z][a-z0-9-]{0,39}$",
+      "title": "Cluster Id",
+      "type": "string"
+    },
+    "cluster_uid": {
+      "minLength": 1,
+      "title": "Cluster Uid",
+      "type": "string"
+    },
+    "gitops_repository_id": {
+      "maxLength": 24,
+      "pattern": "^[1-9][0-9]*$",
+      "title": "Gitops Repository Id",
+      "type": "string"
+    },
+    "profile_id": {
+      "minLength": 1,
+      "title": "Profile Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "cluster_id",
+    "cluster_uid",
+    "gitops_repository_id",
+    "profile_id"
+  ],
+  "title": "Cluster",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

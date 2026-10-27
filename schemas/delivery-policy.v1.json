@@ -1,0 +1,94 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "platform_repository": {
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+      "title": "Platform Repository",
+      "type": "string"
+    },
+    "platform_repository_id": {
+      "maxLength": 24,
+      "pattern": "^[1-9][0-9]*$",
+      "title": "Platform Repository Id",
+      "type": "string"
+    },
+    "gitops_repository": {
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+      "title": "Gitops Repository",
+      "type": "string"
+    },
+    "gitops_repository_id": {
+      "maxLength": 24,
+      "pattern": "^[1-9][0-9]*$",
+      "title": "Gitops Repository Id",
+      "type": "string"
+    },
+    "workflow_bot_user_ids": {
+      "items": {
+        "maxLength": 24,
+        "pattern": "^[1-9][0-9]*$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Workflow Bot User Ids",
+      "type": "array"
+    },
+    "observer_user_ids": {
+      "items": {
+        "maxLength": 24,
+        "pattern": "^[1-9][0-9]*$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Observer User Ids",
+      "type": "array"
+    },
+    "production_reviewer_user_ids": {
+      "items": {
+        "maxLength": 24,
+        "pattern": "^[1-9][0-9]*$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Production Reviewer User Ids",
+      "type": "array"
+    },
+    "maximum_evidence_age_seconds": {
+      "default": 86400,
+      "maximum": 86400,
+      "minimum": 60,
+      "title": "Maximum Evidence Age Seconds",
+      "type": "integer"
+    },
+    "production_human_review_required": {
+      "const": true,
+      "default": true,
+      "title": "Production Human Review Required",
+      "type": "boolean"
+    },
+    "protected_sync_mode": {
+      "const": "operator",
+      "default": "operator",
+      "title": "Protected Sync Mode",
+      "type": "string"
+    }
+  },
+  "required": [
+    "platform_repository",
+    "platform_repository_id",
+    "gitops_repository",
+    "gitops_repository_id",
+    "workflow_bot_user_ids",
+    "observer_user_ids",
+    "production_reviewer_user_ids"
+  ],
+  "title": "DeliveryPolicy",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

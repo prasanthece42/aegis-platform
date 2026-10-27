@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "resource_profile_ids": ["small"],
+  "runtime_profile_ids": ["python312-web"],
+  "environment_branches": {"dev": "main", "staging": "staging", "prod": "prod"},
+  "production_human_review_required": true,
+  "protected_sync_mode": "operator",
+  "max_applications": 100
+}
