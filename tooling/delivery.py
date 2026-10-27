@@ -131,6 +131,9 @@ def main():
             parser.error("PR number is required")
         args.pr_number = int(number)
         pr = engine.gitops.repo("GET", "pulls/" + number)
+        if pr.get("merged_at") or pr["state"] != "open":
+            print("Completed/closed PR: no new admission status is issued")
+            return
         files = engine.gitops.pages(f"pulls/{number}/files")
         if len(files) != pr["changed_files"]:
             raise ValueError("Incomplete PR file list")
@@ -212,12 +215,22 @@ def main():
         if not args.pr_number or args.pr_number < 1:
             parser.error("check-pr requires a PR number")
         pr = engine.gitops.repo("GET", "pulls/" + str(args.pr_number))
+        if pr.get("merged_at") or pr["state"] != "open":
+            print("Completed/closed PR: no new admission status is issued")
+            return
         sha = pr["head"]["sha"]
         try:
             verified, _intent = engine.check_pr(args.pr_number, args.request_id, args.issue_number)
             if verified["head"]["sha"] != sha:
                 raise ValueError("PR head changed while checking")
         except (ValueError, KeyError, OSError):
+            latest = engine.gitops.repo("GET", "pulls/" + str(args.pr_number))
+            if latest.get("merged_at") or latest["state"] != "open":
+                print("PR completed while checking; no retrospective status change is issued")
+                return
+            if latest["head"]["sha"] != sha:
+                print("PR head changed while checking; current-head validation must run again")
+                return
             engine.gitops.repo(
                 "POST",
                 f"statuses/{sha}",

@@ -1,0 +1,232 @@
+{
+  "$defs": {
+    "Profile": {
+      "additionalProperties": false,
+      "properties": {
+        "cpu_request": {
+          "title": "Cpu Request",
+          "type": "string"
+        },
+        "memory_request": {
+          "title": "Memory Request",
+          "type": "string"
+        },
+        "cpu_limit": {
+          "title": "Cpu Limit",
+          "type": "string"
+        },
+        "memory_limit": {
+          "title": "Memory Limit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cpu_request",
+        "memory_request",
+        "cpu_limit",
+        "memory_limit"
+      ],
+      "title": "Profile",
+      "type": "object"
+    },
+    "Versions": {
+      "additionalProperties": false,
+      "properties": {
+        "workflow_commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Workflow Commit",
+          "type": "string"
+        },
+        "helper_commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Helper Commit",
+          "type": "string"
+        },
+        "chart_version": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "title": "Chart Version",
+          "type": "string"
+        },
+        "chart_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Chart Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "workflow_commit",
+        "helper_commit",
+        "chart_version",
+        "chart_sha256"
+      ],
+      "title": "Versions",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "public_origin": {
+      "title": "Public Origin",
+      "type": "string"
+    },
+    "app_id": {
+      "maxLength": 24,
+      "pattern": "^[1-9][0-9]*$",
+      "title": "App Id",
+      "type": "string"
+    },
+    "client_id": {
+      "title": "Client Id",
+      "type": "string"
+    },
+    "platform_repository": {
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+      "title": "Platform Repository",
+      "type": "string"
+    },
+    "platform_repository_id": {
+      "maxLength": 24,
+      "pattern": "^[1-9][0-9]*$",
+      "title": "Platform Repository Id",
+      "type": "string"
+    },
+    "platform_installation_id": {
+      "maxLength": 24,
+      "pattern": "^[1-9][0-9]*$",
+      "title": "Platform Installation Id",
+      "type": "string"
+    },
+    "platform_bot_user_id": {
+      "maxLength": 24,
+      "pattern": "^[1-9][0-9]*$",
+      "title": "Platform Bot User Id",
+      "type": "string"
+    },
+    "platform_branch": {
+      "default": "main",
+      "title": "Platform Branch",
+      "type": "string"
+    },
+    "source_installation_ids": {
+      "items": {
+        "maxLength": 24,
+        "pattern": "^[1-9][0-9]*$",
+        "type": "string"
+      },
+      "title": "Source Installation Ids",
+      "type": "array"
+    },
+    "onboarding_user_ids": {
+      "items": {
+        "maxLength": 24,
+        "pattern": "^[1-9][0-9]*$",
+        "type": "string"
+      },
+      "title": "Onboarding User Ids",
+      "type": "array"
+    },
+    "allowed_owner_user_ids": {
+      "items": {
+        "maxLength": 24,
+        "pattern": "^[1-9][0-9]*$",
+        "type": "string"
+      },
+      "title": "Allowed Owner User Ids",
+      "type": "array"
+    },
+    "resource_profiles": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Profile"
+      },
+      "title": "Resource Profiles",
+      "type": "object"
+    },
+    "versions": {
+      "$ref": "#/$defs/Versions"
+    },
+    "cluster_id": {
+      "title": "Cluster Id",
+      "type": "string"
+    },
+    "cluster_uid": {
+      "title": "Cluster Uid",
+      "type": "string"
+    },
+    "gitops_repository_id": {
+      "maxLength": 24,
+      "pattern": "^[1-9][0-9]*$",
+      "title": "Gitops Repository Id",
+      "type": "string"
+    },
+    "issuer_id": {
+      "title": "Issuer Id",
+      "type": "string"
+    },
+    "signing_key_id": {
+      "title": "Signing Key Id",
+      "type": "string"
+    },
+    "gitops_repository": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gitops Repository"
+    },
+    "gitops_installation_id": {
+      "anyOf": [
+        {
+          "maxLength": 24,
+          "pattern": "^[1-9][0-9]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gitops Installation Id"
+    },
+    "delivery_workflow_commit": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Delivery Workflow Commit"
+    }
+  },
+  "required": [
+    "public_origin",
+    "app_id",
+    "client_id",
+    "platform_repository",
+    "platform_repository_id",
+    "platform_installation_id",
+    "platform_bot_user_id",
+    "source_installation_ids",
+    "onboarding_user_ids",
+    "allowed_owner_user_ids",
+    "resource_profiles",
+    "versions",
+    "cluster_id",
+    "cluster_uid",
+    "gitops_repository_id",
+    "issuer_id",
+    "signing_key_id"
+  ],
+  "title": "LiveConfig",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}
