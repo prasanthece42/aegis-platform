@@ -83,14 +83,53 @@ def worker():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["propose", "check-pr"])
-    parser.add_argument("--request-id", required=True)
-    parser.add_argument("--issue-number", required=True, type=int)
+    parser.add_argument("command", choices=["propose", "check-pr", "check-event"])
+    parser.add_argument("--request-id")
+    parser.add_argument("--issue-number", type=int)
     parser.add_argument("--pr-number", type=int)
     args = parser.parse_args()
-    if not re.fullmatch(r"req-[0-9a-f]{64}", args.request_id) or args.issue_number < 1:
-        parser.error("Invalid request identity")
     engine = worker()
+    if args.command == "check-event":
+        number = str(args.pr_number or os.environ.get("PR_NUMBER", ""))
+        if not re.fullmatch(r"[1-9][0-9]*", number):
+            parser.error("PR number is required")
+        args.pr_number = int(number)
+        pr = engine.gitops.repo("GET", "pulls/" + number)
+        files = engine.gitops.pages(f"pulls/{number}/files")
+        if len(files) != pr["changed_files"]:
+            raise ValueError("Incomplete PR file list")
+        if not any(file["filename"].startswith("applications/") for file in files):
+            engine.gitops.repo(
+                "POST",
+                "statuses/" + pr["head"]["sha"],
+                {
+                    "state": "success",
+                    "context": "aegis/delivery-policy",
+                    "description": "No app delivery paths changed; other checks still apply",
+                },
+            )
+            return
+        rid = re.search(r"^Aegis request: (req-[0-9a-f]{64})$", pr.get("body") or "", re.M)
+        issue = re.search(r"^Platform issue: ([1-9][0-9]*)$", pr.get("body") or "", re.M)
+        if not rid or not issue:
+            engine.gitops.repo(
+                "POST",
+                "statuses/" + pr["head"]["sha"],
+                {
+                    "state": "failure",
+                    "context": "aegis/delivery-policy",
+                    "description": "App delivery changes require a canonical signed request",
+                },
+            )
+            raise ValueError("Missing canonical delivery request binding")
+        args.request_id, args.issue_number = rid[1], int(issue[1])
+        args.command = "check-pr"
+    if (
+        not re.fullmatch(r"req-[0-9a-f]{64}", args.request_id or "")
+        or not args.issue_number
+        or args.issue_number < 1
+    ):
+        parser.error("Invalid request identity")
     if args.command == "propose":
         pr = engine.propose(args.request_id, args.issue_number)
         # The existing chart/promotion checks run at the PR head. Their workflow bytes
