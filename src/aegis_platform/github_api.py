@@ -37,13 +37,18 @@ class GitHubAPI:
         )
         if result.returncode:
             # Never include provider output, request bodies or credential-bearing URLs.
-            raise ValueError("GitHub API operation failed")
+            status = re.search(rb"HTTP ([0-9]{3})", result.stderr)
+            detail = " HTTP " + status[1].decode() if status else ""
+            raise ValueError(f"GitHub API {method} {path.split('?')[0]} failed{detail}")
         if len(result.stdout) > (65536 if raw else 8 * 1024 * 1024):
             raise ValueError("GitHub metadata exceeds bounded response budget")
         return result.stdout if raw else strict_json(result.stdout) if result.stdout else None
 
     def repo(self, method, path, payload=None, **kwargs):
-        return self.call(method, f"/repos/{self.repository}/" + path.lstrip("/"), payload, **kwargs)
+        endpoint = f"/repos/{self.repository}"
+        if path:
+            endpoint += "/" + path.lstrip("/")
+        return self.call(method, endpoint, payload, **kwargs)
 
     def pages(self, path, **params):
         items = []

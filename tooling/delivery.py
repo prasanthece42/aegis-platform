@@ -6,6 +6,8 @@ import os
 import re
 import sys
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 from cryptography.hazmat.primitives import hashes, serialization
@@ -44,15 +46,28 @@ def app_token(installation, repository_id, permissions):
         )
     )
     jwt = unsigned + "." + encoded(key.sign(unsigned.encode(), padding.PKCS1v15(), hashes.SHA256()))
-    api = GitHubAPI(jwt, "prasanthece42/aegis-platform")
-    return api.call(
-        "POST",
-        f"/app/installations/{int(installation)}/access_tokens",
-        {
-            "repository_ids": [int(repository_id)],
-            "permissions": permissions,
+    from aegis_platform.canonical import strict_json
+
+    request = urllib.request.Request(
+        f"https://api.github.com/app/installations/{int(installation)}/access_tokens",
+        data=canonical(
+            {
+                "repository_ids": [int(repository_id)],
+                "permissions": permissions,
+            }
+        ),
+        headers={
+            "Authorization": "Bearer " + jwt,
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
         },
-    )["token"]
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            return strict_json(response.read(65536))["token"]
+    except urllib.error.HTTPError as exc:
+        raise ValueError(f"App token minting failed HTTP {exc.code}") from None
 
 
 def worker():
