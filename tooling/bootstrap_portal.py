@@ -32,6 +32,50 @@ def private_file(path):
     return path.read_bytes()
 
 
+def merged_branch_pr(api, branch, head):
+    # REST 2026-03-10 removes merge_commit_sha from all PR responses. Read the
+    # authoritative GraphQL merge identity and bind it to the same REST PR/head.
+    owner, name = api.repository.split("/")
+    matching = []
+    for listed in api.pages("pulls", state="closed", base=branch):
+        if not listed.get("merged_at"):
+            continue
+        pr = api.repo("GET", "pulls/" + str(listed["number"]))
+        result = api.call(
+            "POST",
+            "/graphql",
+            {
+                "query": """query($owner:String!,$name:String!,$number:Int!) {
+                  repository(owner:$owner,name:$name) {
+                    pullRequest(number:$number) {
+                      number state merged baseRefName headRefOid mergeCommit { oid }
+                    }
+                  }
+                }""",
+                "variables": {"owner": owner, "name": name, "number": pr["number"]},
+            },
+        )
+        if result.get("errors"):
+            raise ValueError("GitHub could not establish the authoritative PR merge identity")
+        merged = result["data"]["repository"]["pullRequest"]
+        if (
+            pr.get("merged_at")
+            and pr["base"]["ref"] == branch
+            and pr["state"] == "closed"
+            and merged
+            and merged.get("number") == pr["number"]
+            and merged.get("state") == "MERGED"
+            and merged.get("merged") is True
+            and merged.get("baseRefName") == branch
+            and merged.get("headRefOid") == pr["head"]["sha"]
+            and (merged.get("mergeCommit") or {}).get("oid") == head
+        ):
+            matching.append(pr)
+    if len(matching) != 1:
+        raise ValueError("System branch head must be an independently reviewed merged PR")
+    return matching[0]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--agent-config", type=Path, required=True)
@@ -69,11 +113,7 @@ def main():
     ):
         raise ValueError("System branch must enforce operator review and trusted manifest checks")
     head = engine.gitops.repo("GET", "commits/" + policy.branch)["sha"]
-    prs = engine.gitops.pages("pulls", state="closed", base=policy.branch)
-    matching = [pr for pr in prs if pr.get("merge_commit_sha") == head and pr.get("merged_at")]
-    if len(matching) != 1:
-        raise ValueError("System branch head must be an independently reviewed merged PR")
-    pr = engine.gitops.repo("GET", "pulls/" + str(matching[0]["number"]))
+    pr = merged_branch_pr(engine.gitops, policy.branch, head)
     if str(pr["user"]["id"]) != policy.configuration.platform_bot_user_id:
         raise ValueError("System PR must come from the enrolled App issuer")
     review_policy = delivery.model_copy(
