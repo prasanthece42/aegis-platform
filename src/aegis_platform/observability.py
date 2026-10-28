@@ -412,6 +412,11 @@ def observability_plan(policy: ObservabilityPolicy, platform_revision: str):
                     "verbs": ["get", "list", "watch"],
                 },
                 {
+                    "apiGroups": ["autoscaling"],
+                    "resources": ["horizontalpodautoscalers"],
+                    "verbs": ["get", "list", "watch"],
+                },
+                {
                     "apiGroups": [""],
                     "resources": ["nodes/stats"],
                     "resourceNames": [policy.node_name],

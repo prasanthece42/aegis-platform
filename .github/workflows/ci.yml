@@ -44,6 +44,7 @@ jobs:
         run: |
           python -c 'import json, subprocess; images=json.load(open("policies/observability.json"))["images"]; [subprocess.run(["docker", "pull", image], check=True) for image in images.values()]'
           python -m tooling.check_observability
+          python -m tooling.check_loki_runtime
       - name: Keep existing chart versions immutable
         env:
           CHART_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}

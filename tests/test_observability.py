@@ -153,3 +153,32 @@ def test_operator_review_retains_exact_policy_and_revision(telemetry_policy):
     assert observability_plan(changed, "a" * 40) == files
     with pytest.raises(ValueError):
         observability_plan(telemetry_policy, "main")
+
+
+def test_single_binary_loki_advertises_the_private_grpc_listener():
+    from aegis_platform.observability_config import loki_config
+
+    config = loki_config()
+    assert (
+        config["common"]["instance_addr"] == config["server"]["grpc_listen_address"] == "127.0.0.1"
+    )
+    assert config["server"]["http_listen_address"] == "127.0.0.1"
+
+
+def test_cluster_receiver_can_observe_hpa_without_workload_write_access(telemetry_policy):
+    files = observability_plan(telemetry_policy, "a" * 40)
+    role = next(
+        resource
+        for resource in files.values()
+        if resource.get("kind") == "ClusterRole"
+        and resource["metadata"]["name"] == "aegis-telemetry-collector"
+    )
+    hpa = [rule for rule in role["rules"] if rule["apiGroups"] == ["autoscaling"]]
+    assert hpa == [
+        {
+            "apiGroups": ["autoscaling"],
+            "resources": ["horizontalpodautoscalers"],
+            "verbs": ["get", "list", "watch"],
+        }
+    ]
+    assert all(set(rule["verbs"]) <= {"get", "list", "watch"} for rule in role["rules"])
