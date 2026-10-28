@@ -1,0 +1,21 @@
+{
+  "source": "Live local Prometheus metric-name inventory, 2026-10-28",
+  "collector_image": "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib@sha256:340c9ca6a36617084c6661bdc4f0fe92b7cda5a805d61673ec8db375fddc522b",
+  "metric_names": [
+    "http_server_request_duration_seconds_bucket",
+    "http_server_requests_total",
+    "k8s_container_ready",
+    "k8s_container_restarts",
+    "k8s_deployment_available",
+    "k8s_node_condition_ready",
+    "k8s_node_cpu_usage",
+    "k8s_node_memory_usage_bytes",
+    "k8s_node_network_io_bytes_total",
+    "k8s_pod_cpu_usage",
+    "k8s_pod_memory_usage_bytes",
+    "up"
+  ],
+  "conditional_builtin_metrics": [
+    "ALERTS"
+  ]
+}

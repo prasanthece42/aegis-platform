@@ -139,6 +139,12 @@ grep -q '401 Unauthorized' /tmp/response
 wget -S -O /dev/null --header='Authorization: Basic BASIC_VALUE' \
   http://127.0.0.1:8080/api/v1/alerts >/tmp/response 2>&1 || true
 grep -q '502 Bad Gateway' /tmp/response
+wget -S -O /dev/null --header='Authorization: Basic BASIC_VALUE' \
+  'http://127.0.0.1:8080/api/v1/series?match%5B%5D=up' >/tmp/response 2>&1 || true
+grep -q '502 Bad Gateway' /tmp/response
+wget -S -O /dev/null --post-data='' --header='Authorization: Basic BASIC_VALUE' \
+  'http://127.0.0.1:8080/api/v1/series?match%5B%5D=up' >/tmp/response 2>&1 || true
+grep -q '405 Not Allowed' /tmp/response
 wget -S -O /dev/null --post-data='' --header='Authorization: Basic BASIC_VALUE' \
   http://127.0.0.1:8080/api/v1/alerts >/tmp/response 2>&1 || true
 grep -q '405 Not Allowed' /tmp/response

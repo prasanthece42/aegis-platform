@@ -34,7 +34,7 @@
           "type": "prometheus",
           "uid": "aegis-prometheus"
         },
-        "query": "label_values(k8s_pod_condition_ready{aegis_cluster_uid=\"$cluster\"}, k8s_namespace_name)",
+        "query": "label_values(k8s_pod_cpu_usage{aegis_cluster_uid=\"$cluster\"}, k8s_namespace_name)",
         "refresh": 1,
         "multi": false,
         "includeAll": false
@@ -47,7 +47,7 @@
       "type": "text",
       "options": {
         "mode": "markdown",
-        "content": "No deployed telemetry verified. Variables are navigation filters, not authorization controls. Missing data is unknown."
+        "content": "Data availability depends on deployed instrumentation. Missing data is unknown, never healthy. Variables are navigation filters, not authorization controls."
       },
       "id": 1,
       "gridPos": {
