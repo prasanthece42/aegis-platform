@@ -274,6 +274,9 @@ def loki_config():
             "grpc_listen_address": "127.0.0.1",
         },
         "common": {
+            # Single-binary components dial their advertised ring address. It must
+            # match the private gRPC listener rather than the externally assigned pod IP.
+            "instance_addr": "127.0.0.1",
             "path_prefix": "/data",
             "replication_factor": 1,
             "ring": {"kvstore": {"store": "inmemory"}},
