@@ -20,6 +20,68 @@ from aegis_platform.proposal import current_state
 from aegis_platform.release import ReleaseEvidence
 
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise ValueError("Service health must not redirect")
+
+
+def verify_dev_security(deployment, service, pods):
+    """Bounded configuration checks on the converged DEV workload and serving pods."""
+    labels = deployment["spec"]["selector"]["matchLabels"]
+    spec = service["spec"]
+    if (
+        spec.get("type", "ClusterIP") != "ClusterIP"
+        or spec.get("externalIPs")
+        or spec.get("selector") != labels
+        or any(p.get("nodePort") for p in spec.get("ports", []))
+    ):
+        raise ValueError("DEV Service must remain private and select the approved workload")
+    selected = [
+        p
+        for p in pods["items"]
+        if not p["metadata"].get("deletionTimestamp")
+        and all(p["metadata"].get("labels", {}).get(k) == v for k, v in labels.items())
+    ]
+    if len(selected) != deployment["spec"]["replicas"]:
+        raise ValueError("DEV serving pod inventory does not match the converged deployment")
+    for pod in [deployment["spec"]["template"], *selected]:
+        spec = pod["spec"]
+        security = spec.get("securityContext", {})
+        if (
+            spec.get("automountServiceAccountToken") is not False
+            or any(spec.get(k) for k in ("hostNetwork", "hostPID", "hostIPC"))
+            or security.get("runAsNonRoot") is not True
+            or security.get("runAsUser") != 10001
+            or security.get("seccompProfile", {}).get("type") != "RuntimeDefault"
+            or any(
+                "hostPath" in v or "secret" in v or "projected" in v
+                for v in spec.get("volumes", [])
+            )
+            or spec.get("initContainers")
+            or spec.get("ephemeralContainers")
+            or len(spec.get("containers", [])) != 1
+        ):
+            raise ValueError("DEV pod differs from the restricted runtime profile")
+        for container in spec["containers"]:
+            security = container.get("securityContext", {})
+            if (
+                container.get("image")
+                != deployment["spec"]["template"]["spec"]["containers"][0].get("image")
+                or security.get("seccompProfile", {}).get("type", "RuntimeDefault")
+                != "RuntimeDefault"
+                or security.get("procMount", "Default") != "Default"
+                or security.get("allowPrivilegeEscalation") is not False
+                or security.get("readOnlyRootFilesystem") is not True
+                or security.get("privileged", False)
+                or security.get("runAsUser", 10001) != 10001
+                or security.get("runAsNonRoot", True) is not True
+                or security.get("capabilities", {}).get("add")
+                or "ALL" not in security.get("capabilities", {}).get("drop", [])
+                or any(p.get("hostPort") for p in container.get("ports", []))
+            ):
+                raise ValueError("DEV container differs from the restricted runtime profile")
+
+
 class LocalConfig(Contract):
     kubeconfig: str
     context: str
@@ -98,7 +160,9 @@ class LocalAgent:
             command(
                 self.kube
                 + (["-n", namespace] if namespace else [])
-                + ["get", kind, name, "-o", "json"]
+                + ["get", kind]
+                + ([name] if name else [])
+                + ["-o", "json"]
             )
         )
 
@@ -272,6 +336,12 @@ class LocalAgent:
                 )
             ):
                 raise ValueError("Deployment replicas/image/generation have not converged")
+            if environment == "dev":
+                verify_dev_security(
+                    deployment,
+                    self.get("service", app_id, target.namespace),
+                    self.get("pods", None, target.namespace),
+                )
             self.http_health(app_id, target.namespace, entry.runtime.health_path)
         except (ValueError, KeyError, OSError, subprocess.SubprocessError):
             self.worker.gitops.repo(
@@ -284,6 +354,16 @@ class LocalAgent:
                 },
             )
             raise
+        if environment == "dev":
+            self.worker.gitops.repo(
+                "POST",
+                "statuses/" + current.intent_anchor,
+                {
+                    "state": "success",
+                    "context": f"aegis/{app_id}/dev-security",
+                    "description": "Restricted runtime " + current.fingerprint,
+                },
+            )
         self.worker.gitops.repo(
             "POST",
             "statuses/" + current.intent_anchor,
@@ -327,8 +407,13 @@ class LocalAgent:
             if not match:
                 raise ValueError("Service probe forward failed")
             request = urllib.request.Request(f"http://127.0.0.1:{match[1]}" + path)
-            with urllib.request.urlopen(request, timeout=5) as response:
-                if response.status != 200 or strict_json(response.read(4096)) != {"status": "ok"}:
+            opener = urllib.request.build_opener(NoRedirect)
+            with opener.open(request, timeout=5) as response:
+                if (
+                    response.url != request.full_url
+                    or response.status != 200
+                    or strict_json(response.read(4096)) != {"status": "ok"}
+                ):
                     raise ValueError("Service HTTP health failed")
         finally:
             process.terminate()

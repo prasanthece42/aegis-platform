@@ -56,6 +56,7 @@ __AEGIS_BOOTSTRAP__
       export-candidate: true
 
   publish:
+    name: "08 Publish release (${{ matrix.arch }})"
     needs: [prepare, validate]
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 25
@@ -154,6 +155,7 @@ __AEGIS_BOOTSTRAP__
           if-no-files-found: warn
 
   release-index:
+    name: "08 Verify release"
     needs: [prepare, publish]
     runs-on: ubuntu-24.04
     timeout-minutes: 25
