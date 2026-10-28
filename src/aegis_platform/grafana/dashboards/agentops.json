@@ -1,0 +1,86 @@
+{
+  "uid": "aegis-agentops",
+  "title": "Aegis / AI / AgentOps (Future Extension)",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "tags": [
+    "aegis",
+    "operator-only",
+    "local-candidate"
+  ],
+  "timezone": "browser",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "cluster",
+        "type": "custom",
+        "query": "kind-local",
+        "current": {
+          "text": "kind-local",
+          "value": "kind-local"
+        },
+        "options": []
+      },
+      {
+        "name": "namespace",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "aegis-prometheus"
+        },
+        "query": "label_values(k8s_pod_condition_ready{aegis_cluster_uid=\"$cluster\"}, k8s_namespace_name)",
+        "refresh": 1,
+        "multi": false,
+        "includeAll": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "title": "Local operator candidate",
+      "type": "text",
+      "options": {
+        "mode": "markdown",
+        "content": "No deployed telemetry verified. Variables are navigation filters, not authorization controls. Missing data is unknown."
+      },
+      "id": 1,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Future instrumentation \u2014 no agent metrics collected",
+      "type": "text",
+      "options": {
+        "mode": "markdown",
+        "content": "Agent execution duration, LLM latency, model/token usage, tool-call failures, execution errors and estimated costs require bounded instrumentation and a reviewed pricing source. This dashboard intentionally has no synthetic metric panels."
+      },
+      "id": 2,
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      }
+    }
+  ],
+  "links": [
+    {
+      "title": "Application logs and traces",
+      "type": "link",
+      "url": "/d/aegis-investigation?var-cluster=${cluster}&var-namespace=${namespace}",
+      "keepTime": true,
+      "includeVars": true,
+      "targetBlank": false
+    }
+  ]
+}

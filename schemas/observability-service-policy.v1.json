@@ -1,0 +1,41 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "branch": {
+      "const": "platform-observability",
+      "default": "platform-observability",
+      "title": "Branch",
+      "type": "string"
+    },
+    "operator_user_ids": {
+      "items": {
+        "maxLength": 24,
+        "pattern": "^[1-9][0-9]*$",
+        "type": "string"
+      },
+      "maxItems": 20,
+      "minItems": 1,
+      "title": "Operator User Ids",
+      "type": "array"
+    },
+    "proposer_bot_user_id": {
+      "maxLength": 24,
+      "pattern": "^[1-9][0-9]*$",
+      "title": "Proposer Bot User Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "operator_user_ids",
+    "proposer_bot_user_id"
+  ],
+  "title": "ObservabilityServicePolicy",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

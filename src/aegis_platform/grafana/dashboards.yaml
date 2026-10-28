@@ -1,0 +1,17 @@
+{
+  "apiVersion": 1,
+  "providers": [
+    {
+      "name": "aegis",
+      "orgId": 1,
+      "folder": "Aegis Platform Operations",
+      "type": "file",
+      "disableDeletion": true,
+      "allowUiUpdates": false,
+      "updateIntervalSeconds": 30,
+      "options": {
+        "path": "/etc/grafana/dashboards"
+      }
+    }
+  ]
+}

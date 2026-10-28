@@ -36,6 +36,14 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: python -m pytest -q
+      - name: Verify actual Grafana provisioning and authentication
+        run: |
+          python -c 'import subprocess; from aegis_platform.grafana import IMAGE; subprocess.run(["docker", "pull", IMAGE], check=True)'
+          python -m tooling.check_grafana
+      - name: Validate pinned telemetry backends, gateways and alert transitions
+        run: |
+          python -c 'import json, subprocess; images=json.load(open("policies/observability.json"))["images"]; [subprocess.run(["docker", "pull", image], check=True) for image in images.values()]'
+          python -m tooling.check_observability
       - name: Keep existing chart versions immutable
         env:
           CHART_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}

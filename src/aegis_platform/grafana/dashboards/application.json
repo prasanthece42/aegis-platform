@@ -1,0 +1,296 @@
+{
+  "uid": "aegis-application",
+  "title": "Aegis / Application Golden Signals",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "tags": [
+    "aegis",
+    "operator-only",
+    "local-candidate"
+  ],
+  "timezone": "browser",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "cluster",
+        "type": "custom",
+        "query": "kind-local",
+        "current": {
+          "text": "kind-local",
+          "value": "kind-local"
+        },
+        "options": []
+      },
+      {
+        "name": "namespace",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "aegis-prometheus"
+        },
+        "query": "label_values(k8s_pod_condition_ready{aegis_cluster_uid=\"$cluster\"}, k8s_namespace_name)",
+        "refresh": 1,
+        "multi": false,
+        "includeAll": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "title": "Local operator candidate",
+      "type": "text",
+      "options": {
+        "mode": "markdown",
+        "content": "No deployed telemetry verified. Variables are navigation filters, not authorization controls. Missing data is unknown."
+      },
+      "id": 1,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Traffic",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "aegis-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_requests_total{aegis_cluster_uid=\"$cluster\",k8s_namespace_name=\"$namespace\"}[5m]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "links": [
+            {
+              "title": "Investigate logs and traces",
+              "url": "/d/aegis-investigation?var-cluster=${cluster}&var-namespace=${namespace}",
+              "targetBlank": false
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {},
+      "id": 2,
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "HTTP 5xx fraction",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "aegis-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_requests_total{aegis_cluster_uid=\"$cluster\",k8s_namespace_name=\"$namespace\",http_response_status_code=~\"5..\"}[5m])) / clamp_min(sum(rate(http_server_requests_total{aegis_cluster_uid=\"$cluster\",k8s_namespace_name=\"$namespace\"}[5m])),0.001)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "links": [
+            {
+              "title": "Investigate logs and traces",
+              "url": "/d/aegis-investigation?var-cluster=${cluster}&var-namespace=${namespace}",
+              "targetBlank": false
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {},
+      "id": 3,
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Request latency p95",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "aegis-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95,sum by(le)(rate(http_server_request_duration_seconds_bucket{aegis_cluster_uid=\"$cluster\",k8s_namespace_name=\"$namespace\"}[5m])))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "links": [
+            {
+              "title": "Investigate logs and traces",
+              "url": "/d/aegis-investigation?var-cluster=${cluster}&var-namespace=${namespace}",
+              "targetBlank": false
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {},
+      "id": 4,
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Pod CPU saturation input",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "aegis-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "k8s_pod_cpu_usage{aegis_cluster_uid=\"$cluster\",k8s_namespace_name=\"$namespace\"}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "links": [
+            {
+              "title": "Investigate logs and traces",
+              "url": "/d/aegis-investigation?var-cluster=${cluster}&var-namespace=${namespace}",
+              "targetBlank": false
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {},
+      "id": 5,
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Pod memory saturation input",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "aegis-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "k8s_pod_memory_usage_bytes{aegis_cluster_uid=\"$cluster\",k8s_namespace_name=\"$namespace\"}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "links": [
+            {
+              "title": "Investigate logs and traces",
+              "url": "/d/aegis-investigation?var-cluster=${cluster}&var-namespace=${namespace}",
+              "targetBlank": false
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {},
+      "id": 6,
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Pod readiness (not an external SLI)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "aegis-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "k8s_pod_condition_ready{aegis_cluster_uid=\"$cluster\",k8s_namespace_name=\"$namespace\"}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "links": [
+            {
+              "title": "Investigate logs and traces",
+              "url": "/d/aegis-investigation?var-cluster=${cluster}&var-namespace=${namespace}",
+              "targetBlank": false
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {},
+      "id": 7,
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Instrumentation status",
+      "type": "text",
+      "options": {
+        "mode": "markdown",
+        "content": "Requires deployed hello-aegis telemetry candidate and collector ingestion. CPU/memory are usage; saturation ratios require verified limits. No data means unknown, never healthy."
+      },
+      "id": 8,
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      }
+    }
+  ],
+  "links": [
+    {
+      "title": "Application logs and traces",
+      "type": "link",
+      "url": "/d/aegis-investigation?var-cluster=${cluster}&var-namespace=${namespace}",
+      "keepTime": true,
+      "includeVars": true,
+      "targetBlank": false
+    }
+  ]
+}
