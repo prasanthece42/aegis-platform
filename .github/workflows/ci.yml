@@ -36,6 +36,17 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: python -m pytest -q
+      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.76.1
+          cache: true
+      - name: Verify actual source security scanners and redaction
+        env:
+          AEGIS_BANDIT_PYTHON: ${{ runner.temp }}/aegis-security-venv/bin/python
+        run: |
+          python -m venv "$RUNNER_TEMP/aegis-security-venv"
+          "$RUNNER_TEMP/aegis-security-venv/bin/python" -m pip install --require-hashes -r security/requirements.txt
+          PYTHONPATH=src:. python -m tooling.check_source_security
       - name: Verify actual Grafana provisioning and authentication
         run: |
           python -c 'import subprocess; from aegis_platform.grafana import IMAGE; subprocess.run(["docker", "pull", IMAGE], check=True)'

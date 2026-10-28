@@ -28,7 +28,7 @@ def inventory_policy(report: dict):
         raise ValueError("CRITICAL vulnerabilities block the candidate, including unfixed findings")
 
 
-def checks(source: Path, venv: Path):
+def source_environment(source: Path, venv: Path):
     if (
         not (source / "requirements.txt").is_file()
         or not (source / "requirements-prod.txt").is_file()
@@ -39,9 +39,16 @@ def checks(source: Path, venv: Path):
     run([sys.executable, "-m", "venv", str(venv)])
     python = str(venv / "bin/python")
     run([python, "-m", "pip", "install", "--require-hashes", "-r", "requirements.txt"], cwd=source)
-    run([python, "-m", "ruff", "check", "."], cwd=source)
-    run([python, "-m", "ruff", "format", "--check", "."], cwd=source)
-    run([python, "-m", "pytest"], cwd=source)
+    return python
+
+
+def checks(source: Path, venv: Path, phase="all"):
+    python = source_environment(source, venv)
+    if phase in {"all", "quality"}:
+        run([python, "-m", "ruff", "check", "."], cwd=source)
+        run([python, "-m", "ruff", "format", "--check", "."], cwd=source)
+    if phase in {"all", "tests"}:
+        run([python, "-m", "pytest"], cwd=source)
 
 
 def smoke(image: str, runtime: Runtime):
@@ -93,7 +100,7 @@ def smoke(image: str, runtime: Runtime):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["checks", "scan-policy", "smoke"])
+    parser.add_argument("command", choices=["checks", "quality", "tests", "scan-policy", "smoke"])
     parser.add_argument("--source", type=Path)
     parser.add_argument("--venv", type=Path)
     parser.add_argument("--report", type=Path)
@@ -101,10 +108,14 @@ def main():
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--health-path", default="/health")
     args = parser.parse_args()
-    if args.command == "checks":
+    if args.command in {"checks", "quality", "tests"}:
         if args.source is None or args.venv is None:
             parser.error("checks requires --source and --venv")
-        checks(args.source.resolve(), args.venv.resolve())
+        checks(
+            args.source.resolve(),
+            args.venv.resolve(),
+            "all" if args.command == "checks" else args.command,
+        )
     elif args.command == "scan-policy":
         if args.report is None:
             parser.error("scan-policy requires --report")
