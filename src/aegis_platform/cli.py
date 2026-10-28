@@ -50,6 +50,42 @@ def main():
             print(json.dumps(chart_identity(args.chart), indent=2))
             return
         catalog = load_catalog(args.catalog, args.policy)
+        observability_path = args.policy.parent / "observability.json"
+        if observability_path.exists():
+            from aegis_platform.canonical import strict_json
+            from aegis_platform.observability_policy import ObservabilityPolicy
+
+            observability = ObservabilityPolicy.model_validate(
+                strict_json(observability_path.read_bytes())
+            )
+            enrolled = catalog.clusters.get(observability.cluster_id)
+            delivery = strict_json((args.policy.parent / "delivery.json").read_bytes())
+            if (
+                delivery["platform_repository_id"] != observability.platform_repository_id
+                or delivery["gitops_repository_id"] != observability.gitops_repository_id
+                or delivery["gitops_repository"] != observability.gitops_repository
+            ):
+                raise ValueError(
+                    "Telemetry policy differs from enrolled cluster/repository bindings"
+                )
+            # Isolated example catalogs do not represent the workstation's active enrollment.
+            if args.catalog.resolve() == Path("catalog").resolve() and (
+                enrolled is None
+                or enrolled.cluster_uid != observability.cluster_uid
+                or enrolled.gitops_repository_id != observability.gitops_repository_id
+            ):
+                raise ValueError("Telemetry policy differs from the active cluster enrollment")
+        service_path = args.policy.parent / "observability-service.json"
+        if service_path.exists():
+            from aegis_platform.canonical import strict_json
+            from aegis_platform.observability_service import ObservabilityServicePolicy
+
+            service = ObservabilityServicePolicy.model_validate(
+                strict_json(service_path.read_bytes())
+            )
+            delivery = strict_json((args.policy.parent / "delivery.json").read_bytes())
+            if not set(service.operator_user_ids) <= set(delivery["observer_user_ids"]):
+                raise ValueError("Telemetry operators must be enrolled local observers")
         owner_path = args.policy.parent / "portal-owner.json"
         if owner_path.exists():
             from aegis_platform.canonical import strict_json
@@ -127,6 +163,8 @@ def export_schemas(directory: Path):
     from aegis_platform.catalog import CatalogPolicy, Cluster
     from aegis_platform.contracts import RegistrationFields, RegistrationSubmission
     from aegis_platform.delivery import DeliveryPolicy, DeploymentFields, DeploymentSubmission
+    from aegis_platform.observability_policy import ObservabilityPolicy
+    from aegis_platform.observability_service import ObservabilityServicePolicy
     from aegis_platform.portal_config import LiveConfig
     from aegis_platform.portal_owner import PortalOwnerPolicy
     from aegis_platform.portal_system import PortalSystemPolicy
@@ -151,6 +189,8 @@ def export_schemas(directory: Path):
         (LiveConfig, "portal-config"),
         (PortalSystemPolicy, "portal-system-policy"),
         (PortalOwnerPolicy, "portal-owner-policy"),
+        (ObservabilityPolicy, "observability-policy"),
+        (ObservabilityServicePolicy, "observability-service-policy"),
     ]:
         schema = model.model_json_schema()
         schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"

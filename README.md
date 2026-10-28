@@ -121,3 +121,56 @@ explicit legacy sample enrollment, protected-target end-to-end evidence, rollbac
 advance controls, and credential rotation/recovery procedures. Keep these separate from
 the already verified DEV request path. Design references are in the sample repository's
 `DOCS/22`–`28` documents.
+
+
+## Shared monitoring candidate (0.4.6)
+
+`policies/observability.json` binds the enrolled cluster, public kubelet certificate chain,
+private query capability fingerprint and seven immutable component images. The pure
+`observability_plan` renderer produces public manifests for Prometheus, Alertmanager, Loki,
+Tempo, the OpenTelemetry Collector and a bounded container-log reader. It emits no Secret
+values and performs no cluster writes. The plan includes an independent operator review
+record; a rendered candidate is not evidence of approval or installation.
+
+Backends bind to pod loopback behind authenticated Nginx query/ingest proxies. This provides
+query authentication independently of local CNI NetworkPolicy support. Read-only proxy pods
+place all temporary paths under `/tmp`. The collector replaces application-supplied Kubernetes
+identity using connection metadata. The log reader uses bounded read-only Kubernetes access,
+excludes its own namespace, scrubs common credentials and advances cursors only after full
+OTLP acceptance. Log collection continues when another application namespace is unavailable.
+Retention is bounded to 24 hours and PVC capacity; alerts have no external notification target.
+
+Run the ordinary unit suite and then, with all seven reviewed images cached in Docker:
+
+```sh
+.venv/bin/python -m tooling.check_observability
+```
+
+This check runs five native backend validators, all five proxy validators, query authentication
+checks and a simulated hello-aegis alert firing/clearing test in disposable containers. Every
+container has networking disabled, no published ports, a read-only filesystem and synthetic
+credentials. It never pulls images, contacts Kubernetes or changes deployments. Evidence is
+saved in `.local/observability-validation/results.json`. The checker requires local OpenSSL.
+
+Live installation, trusted GitOps admission/bootstrap tooling and an instrumented request
+through deployed hello-aegis and the configured portal still require reviewed activation.
+Passing offline checks does not establish live ingestion, readiness or deployment health.
+
+## Central Grafana local candidate
+
+The [Grafana architecture and runbook](docs/grafana-observability.md) records discovery,
+placement/security decisions, six dashboards, private prerequisites, GitOps review,
+alert ownership and EKS/hardening gaps. The [verification record](docs/grafana-verification.md)
+separates actual container checks from blocked deployed telemetry checks.
+
+`python -m aegis_platform.grafana --policy policies/observability.json --revision
+FULL_REVIEWED_SHA --output .local/grafana-candidate` renders a separate operator-only
+add-on without changing the existing seven-component policy or applying anything.
+With the pinned Grafana image cached, run `PYTHONPATH=src .venv/bin/python -m
+tooling.check_grafana` for actual isolated provisioning/authentication verification.
+Developer Grafana access is disabled until backend tenant isolation is established.
+
+The [reviewed activation path](docs/observability-activation.md) now provides combined
+exact-plan rendering, pinned GitOps admission workflow generation, independent-current-head
+review checks, and a local bootstrap that defaults to verification only. It preserves
+existing deployment approval requirements and never creates AWS resources.

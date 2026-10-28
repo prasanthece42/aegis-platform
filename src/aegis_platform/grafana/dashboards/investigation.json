@@ -1,0 +1,144 @@
+{
+  "uid": "aegis-investigation",
+  "title": "Aegis / Logs and Traces",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "tags": [
+    "aegis",
+    "operator-only",
+    "local-candidate"
+  ],
+  "timezone": "browser",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "cluster",
+        "type": "custom",
+        "query": "kind-local",
+        "current": {
+          "text": "kind-local",
+          "value": "kind-local"
+        },
+        "options": []
+      },
+      {
+        "name": "namespace",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "aegis-prometheus"
+        },
+        "query": "label_values(k8s_pod_condition_ready{aegis_cluster_uid=\"$cluster\"}, k8s_namespace_name)",
+        "refresh": 1,
+        "multi": false,
+        "includeAll": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "title": "Local operator candidate",
+      "type": "text",
+      "options": {
+        "mode": "markdown",
+        "content": "No deployed telemetry verified. Variables are navigation filters, not authorization controls. Missing data is unknown."
+      },
+      "id": 1,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Recent request failures",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "aegis-loki"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{aegis_cluster_uid=\"$cluster\",k8s_namespace_name=\"$namespace\"} | json | status >= 500",
+          "queryType": "range"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "id": 2,
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Recent logs",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "aegis-loki"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{aegis_cluster_uid=\"$cluster\",k8s_namespace_name=\"$namespace\"}",
+          "queryType": "range"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "id": 3,
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Trace investigation",
+      "type": "text",
+      "options": {
+        "mode": "markdown",
+        "content": "Use TraceID links in structured request logs to open Tempo. From a trace, use logs for this span. Trace IDs remain structured metadata/body fields, never indexed labels. Slow-request search requires verified Tempo search support; database, external service and agent spans appear only where instrumented."
+      },
+      "id": 4,
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      }
+    }
+  ],
+  "links": [
+    {
+      "title": "Application logs and traces",
+      "type": "link",
+      "url": "/d/aegis-investigation?var-cluster=${cluster}&var-namespace=${namespace}",
+      "keepTime": true,
+      "includeVars": true,
+      "targetBlank": false
+    }
+  ]
+}

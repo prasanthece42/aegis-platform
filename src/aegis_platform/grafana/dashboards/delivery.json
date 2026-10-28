@@ -1,0 +1,156 @@
+{
+  "uid": "aegis-delivery",
+  "title": "Aegis / CI/CD and GitOps",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "tags": [
+    "aegis",
+    "operator-only",
+    "local-candidate"
+  ],
+  "timezone": "browser",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "cluster",
+        "type": "custom",
+        "query": "kind-local",
+        "current": {
+          "text": "kind-local",
+          "value": "kind-local"
+        },
+        "options": []
+      },
+      {
+        "name": "namespace",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "aegis-prometheus"
+        },
+        "query": "label_values(k8s_pod_condition_ready{aegis_cluster_uid=\"$cluster\"}, k8s_namespace_name)",
+        "refresh": 1,
+        "multi": false,
+        "includeAll": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "title": "Local operator candidate",
+      "type": "text",
+      "options": {
+        "mode": "markdown",
+        "content": "No deployed telemetry verified. Variables are navigation filters, not authorization controls. Missing data is unknown."
+      },
+      "id": 1,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Future instrumentation",
+      "type": "text",
+      "options": {
+        "mode": "markdown",
+        "content": "Deployment frequency, success/failure, rollout duration and Argo CD synchronization metrics are not currently scraped. Do not infer delivery success from pod readiness."
+      },
+      "id": 2,
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Deployment availability",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "aegis-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "k8s_deployment_available{aegis_cluster_uid=\"$cluster\",k8s_namespace_name=\"$namespace\"}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "links": [
+            {
+              "title": "Investigate logs and traces",
+              "url": "/d/aegis-investigation?var-cluster=${cluster}&var-namespace=${namespace}",
+              "targetBlank": false
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {},
+      "id": 3,
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Deployment alerts",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "aegis-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ALERTS{aegis_cluster_uid=\"$cluster\",k8s_namespace_name=\"$namespace\"}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "links": [
+            {
+              "title": "Investigate logs and traces",
+              "url": "/d/aegis-investigation?var-cluster=${cluster}&var-namespace=${namespace}",
+              "targetBlank": false
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {},
+      "id": 4,
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      }
+    }
+  ],
+  "links": [
+    {
+      "title": "Application logs and traces",
+      "type": "link",
+      "url": "/d/aegis-investigation?var-cluster=${cluster}&var-namespace=${namespace}",
+      "keepTime": true,
+      "includeVars": true,
+      "targetBlank": false
+    }
+  ]
+}

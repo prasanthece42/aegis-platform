@@ -1,0 +1,93 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "platform_repository_id": {
+      "maxLength": 24,
+      "pattern": "^[1-9][0-9]*$",
+      "title": "Platform Repository Id",
+      "type": "string"
+    },
+    "gitops_repository_id": {
+      "maxLength": 24,
+      "pattern": "^[1-9][0-9]*$",
+      "title": "Gitops Repository Id",
+      "type": "string"
+    },
+    "gitops_repository": {
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+      "title": "Gitops Repository",
+      "type": "string"
+    },
+    "cluster_id": {
+      "pattern": "^[a-z][a-z0-9-]{0,39}$",
+      "title": "Cluster Id",
+      "type": "string"
+    },
+    "cluster_uid": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Cluster Uid",
+      "type": "string"
+    },
+    "node_name": {
+      "pattern": "^[a-z0-9][a-z0-9.-]{0,252}$",
+      "title": "Node Name",
+      "type": "string"
+    },
+    "node_ip": {
+      "title": "Node Ip",
+      "type": "string"
+    },
+    "namespace": {
+      "const": "aegis-observability",
+      "default": "aegis-observability",
+      "title": "Namespace",
+      "type": "string"
+    },
+    "retention_hours": {
+      "const": 24,
+      "default": 24,
+      "title": "Retention Hours",
+      "type": "integer"
+    },
+    "query_password_sha256": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Query Password Sha256",
+      "type": "string"
+    },
+    "images": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Images",
+      "type": "object"
+    },
+    "kubelet_ca_pem": {
+      "maxLength": 16384,
+      "minLength": 128,
+      "title": "Kubelet Ca Pem",
+      "type": "string"
+    }
+  },
+  "required": [
+    "platform_repository_id",
+    "gitops_repository_id",
+    "gitops_repository",
+    "cluster_id",
+    "cluster_uid",
+    "node_name",
+    "node_ip",
+    "query_password_sha256",
+    "images",
+    "kubelet_ca_pem"
+  ],
+  "title": "ObservabilityPolicy",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}
