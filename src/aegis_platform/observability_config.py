@@ -22,7 +22,7 @@ def proxy_config(component):
     }
     reads = {
         "prometheus": (
-            r"/api/v1/(query|query_range|alerts|rules|targets|labels|"
+            r"/api/v1/(query|query_range|alerts|rules|targets|labels|series|"
             r"label/[a-zA-Z_][a-zA-Z0-9_]*/values|status/buildinfo)"
         ),
         "loki": r"/loki/api/v1/(query|query_range|labels|label/[a-zA-Z_][a-zA-Z0-9_]*/values)",
@@ -114,10 +114,13 @@ def alert_rules():
                     },
                     {
                         "alert": "AegisPodNotReady",
-                        "expr": f"k8s_pod_condition_ready{{{scope}}} == 0",
+                        "expr": (
+                            "min by (k8s_namespace_name, k8s_pod_name, aegis_cluster_uid) "
+                            f"(k8s_container_ready{{{scope}}}) == 0"
+                        ),
                         "for": "2m",
                         "labels": {"severity": "warning"},
-                        "annotations": {"summary": "Application pod is not ready"},
+                        "annotations": {"summary": "Application pod has an unready container"},
                     },
                     {
                         "alert": "AegisTelemetryScrapeUnavailable",

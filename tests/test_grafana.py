@@ -79,3 +79,24 @@ def test_dashboards_are_scoped_with_no_fabricated_future_metrics():
     assert len(uids) == 6
     assert all(p["type"] == "text" for p in boards["agentops.json"]["panels"])
     assert "Future instrumentation" in json.dumps(boards["delivery.json"])
+
+
+def test_dashboard_queries_reference_observed_metrics_for_the_pinned_collector():
+    import re
+    from pathlib import Path
+
+    inventory = json.loads(Path("tests/fixtures/observed-observability-metrics.json").read_text())
+    assert inventory["collector_image"] == policy().images["collector"]
+    available = set(inventory["metric_names"]) | set(inventory["conditional_builtin_metrics"])
+    for board in dashboards("actual-cluster").values():
+        expressions = [
+            v.get("query", "") for v in board["templating"]["list"] if v["type"] == "query"
+        ]
+        for panel in board["panels"]:
+            if panel.get("datasource", {}).get("type") == "prometheus":
+                expressions += [target["expr"] for target in panel["targets"]]
+        for expression in expressions:
+            referenced = set(re.findall(r"([a-zA-Z_:][a-zA-Z0-9_:]*)\s*\{", expression))
+            assert referenced <= available, (board["uid"], referenced - available)
+        namespace = next(v for v in board["templating"]["list"] if v["name"] == "namespace")
+        assert "k8s_pod_cpu_usage" in namespace["query"]

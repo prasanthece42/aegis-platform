@@ -182,3 +182,14 @@ def test_cluster_receiver_can_observe_hpa_without_workload_write_access(telemetr
         }
     ]
     assert all(set(rule["verbs"]) <= {"get", "list", "watch"} for rule in role["rules"])
+
+
+def test_readiness_alert_uses_collected_container_readiness_and_preserves_pod_grouping():
+    from aegis_platform.observability_config import alert_rules
+
+    rule = next(
+        rule for rule in alert_rules()["groups"][0]["rules"] if rule["alert"] == "AegisPodNotReady"
+    )
+    assert "k8s_container_ready" in rule["expr"]
+    assert "k8s_pod_condition_ready" not in rule["expr"]
+    assert "min by (k8s_namespace_name, k8s_pod_name, aegis_cluster_uid)" in rule["expr"]

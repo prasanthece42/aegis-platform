@@ -123,7 +123,7 @@ def main():
         results.append("Six dashboards loaded by real Grafana provisioning")
         report = {
             "passed": results,
-            "backend_connectivity": "NOT VERIFIED: no telemetry stack deployed",
+            "backend_connectivity": "NOT VERIFIED by this isolated check; no backends attached",
             "cross_tenant_isolation": "NOT ESTABLISHED: operator-only profile",
             "image": IMAGE,
             "cluster_changes": False,
