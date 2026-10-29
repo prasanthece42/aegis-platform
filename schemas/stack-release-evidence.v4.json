@@ -1,0 +1,580 @@
+{
+  "$defs": {
+    "ComponentEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "app_id": {
+          "maxLength": 40,
+          "minLength": 3,
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+          "title": "App Id",
+          "type": "string"
+        },
+        "source_repository": {
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+          "title": "Source Repository",
+          "type": "string"
+        },
+        "source_repository_id": {
+          "maxLength": 24,
+          "pattern": "^[1-9][0-9]*$",
+          "title": "Source Repository Id",
+          "type": "string"
+        },
+        "source_commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Source Commit",
+          "type": "string"
+        },
+        "workflow_run_id": {
+          "maxLength": 24,
+          "pattern": "^[1-9][0-9]*$",
+          "title": "Workflow Run Id",
+          "type": "string"
+        },
+        "run_attempt": {
+          "maxLength": 24,
+          "pattern": "^[1-9][0-9]*$",
+          "title": "Run Attempt",
+          "type": "string"
+        },
+        "platform_commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Platform Commit",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": 3,
+          "default": 3,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "release_tag": {
+          "title": "Release Tag",
+          "type": "string"
+        },
+        "verified_at": {
+          "title": "Verified At",
+          "type": "string"
+        },
+        "image": {
+          "title": "Image",
+          "type": "string"
+        },
+        "platforms": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ComponentPlatform"
+          },
+          "title": "Platforms",
+          "type": "object"
+        },
+        "bundle_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Bundle Sha256",
+          "type": "string"
+        },
+        "provenance": {
+          "const": "Unsigned workflow evidence; admission must verify GitHub source/run identity",
+          "title": "Provenance",
+          "type": "string"
+        },
+        "service_name": {
+          "pattern": "^[a-z](?:[a-z0-9-]{0,20}[a-z0-9])?$",
+          "title": "Service Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "app_id",
+        "source_repository",
+        "source_repository_id",
+        "source_commit",
+        "workflow_run_id",
+        "run_attempt",
+        "platform_commit",
+        "release_tag",
+        "verified_at",
+        "image",
+        "platforms",
+        "bundle_sha256",
+        "provenance",
+        "service_name"
+      ],
+      "title": "ComponentEvidence",
+      "type": "object"
+    },
+    "ComponentPlatform": {
+      "additionalProperties": false,
+      "properties": {
+        "app_id": {
+          "maxLength": 40,
+          "minLength": 3,
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+          "title": "App Id",
+          "type": "string"
+        },
+        "source_repository": {
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+          "title": "Source Repository",
+          "type": "string"
+        },
+        "source_repository_id": {
+          "maxLength": 24,
+          "pattern": "^[1-9][0-9]*$",
+          "title": "Source Repository Id",
+          "type": "string"
+        },
+        "source_commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Source Commit",
+          "type": "string"
+        },
+        "workflow_run_id": {
+          "maxLength": 24,
+          "pattern": "^[1-9][0-9]*$",
+          "title": "Workflow Run Id",
+          "type": "string"
+        },
+        "run_attempt": {
+          "maxLength": 24,
+          "pattern": "^[1-9][0-9]*$",
+          "title": "Run Attempt",
+          "type": "string"
+        },
+        "platform_commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Platform Commit",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "platform": {
+          "enum": [
+            "linux/amd64",
+            "linux/arm64"
+          ],
+          "title": "Platform",
+          "type": "string"
+        },
+        "image": {
+          "title": "Image",
+          "type": "string"
+        },
+        "image_config_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Image Config Digest",
+          "type": "string"
+        },
+        "candidate_archive_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Candidate Archive Sha256",
+          "type": "string"
+        },
+        "digest_pull_smoke_test": {
+          "const": "passed",
+          "title": "Digest Pull Smoke Test",
+          "type": "string"
+        },
+        "evidence_sha256": {
+          "additionalProperties": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "title": "Evidence Sha256",
+          "type": "object"
+        },
+        "service_name": {
+          "pattern": "^[a-z](?:[a-z0-9-]{0,20}[a-z0-9])?$",
+          "title": "Service Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "app_id",
+        "source_repository",
+        "source_repository_id",
+        "source_commit",
+        "workflow_run_id",
+        "run_attempt",
+        "platform_commit",
+        "platform",
+        "image",
+        "image_config_digest",
+        "candidate_archive_sha256",
+        "digest_pull_smoke_test",
+        "evidence_sha256",
+        "service_name"
+      ],
+      "title": "ComponentPlatform",
+      "type": "object"
+    },
+    "PublishedPlatform": {
+      "additionalProperties": false,
+      "properties": {
+        "app_id": {
+          "maxLength": 40,
+          "minLength": 3,
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+          "title": "App Id",
+          "type": "string"
+        },
+        "source_repository": {
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+          "title": "Source Repository",
+          "type": "string"
+        },
+        "source_repository_id": {
+          "maxLength": 24,
+          "pattern": "^[1-9][0-9]*$",
+          "title": "Source Repository Id",
+          "type": "string"
+        },
+        "source_commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Source Commit",
+          "type": "string"
+        },
+        "workflow_run_id": {
+          "maxLength": 24,
+          "pattern": "^[1-9][0-9]*$",
+          "title": "Workflow Run Id",
+          "type": "string"
+        },
+        "run_attempt": {
+          "maxLength": 24,
+          "pattern": "^[1-9][0-9]*$",
+          "title": "Run Attempt",
+          "type": "string"
+        },
+        "platform_commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Platform Commit",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "platform": {
+          "enum": [
+            "linux/amd64",
+            "linux/arm64"
+          ],
+          "title": "Platform",
+          "type": "string"
+        },
+        "image": {
+          "title": "Image",
+          "type": "string"
+        },
+        "image_config_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Image Config Digest",
+          "type": "string"
+        },
+        "candidate_archive_sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Candidate Archive Sha256",
+          "type": "string"
+        },
+        "digest_pull_smoke_test": {
+          "const": "passed",
+          "title": "Digest Pull Smoke Test",
+          "type": "string"
+        },
+        "evidence_sha256": {
+          "additionalProperties": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "title": "Evidence Sha256",
+          "type": "object"
+        }
+      },
+      "required": [
+        "app_id",
+        "source_repository",
+        "source_repository_id",
+        "source_commit",
+        "workflow_run_id",
+        "run_attempt",
+        "platform_commit",
+        "platform",
+        "image",
+        "image_config_digest",
+        "candidate_archive_sha256",
+        "digest_pull_smoke_test",
+        "evidence_sha256"
+      ],
+      "title": "PublishedPlatform",
+      "type": "object"
+    },
+    "StackDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "profile_id": {
+          "const": "python312-multiservice",
+          "default": "python312-multiservice",
+          "title": "Profile Id",
+          "type": "string"
+        },
+        "primary_service": {
+          "pattern": "^[a-z](?:[a-z0-9-]{0,20}[a-z0-9])?$",
+          "title": "Primary Service",
+          "type": "string"
+        },
+        "services": {
+          "maxProperties": 8,
+          "minProperties": 2,
+          "patternProperties": {
+            "^[a-z](?:[a-z0-9-]{0,20}[a-z0-9])?$": {
+              "$ref": "#/$defs/StackService"
+            }
+          },
+          "title": "Services",
+          "type": "object"
+        },
+        "dependencies": {
+          "const": "postgres17-redis7-nginx",
+          "default": "postgres17-redis7-nginx",
+          "title": "Dependencies",
+          "type": "string"
+        }
+      },
+      "required": [
+        "primary_service",
+        "services"
+      ],
+      "title": "StackDefinition",
+      "type": "object"
+    },
+    "StackService": {
+      "additionalProperties": false,
+      "properties": {
+        "context": {
+          "default": ".",
+          "title": "Context",
+          "type": "string"
+        },
+        "dockerfile": {
+          "default": "Dockerfile",
+          "title": "Dockerfile",
+          "type": "string"
+        },
+        "build_args": {
+          "maxProperties": 8,
+          "patternProperties": {
+            "^[A-Z][A-Z0-9_]{0,63}$": {
+              "type": "string"
+            }
+          },
+          "title": "Build Args",
+          "type": "object"
+        },
+        "port": {
+          "default": 8000,
+          "maximum": 65535,
+          "minimum": 1024,
+          "title": "Port",
+          "type": "integer"
+        },
+        "health_path": {
+          "default": "/ready",
+          "title": "Health Path",
+          "type": "string"
+        },
+        "replicas": {
+          "default": 1,
+          "maximum": 2,
+          "minimum": 1,
+          "title": "Replicas",
+          "type": "integer"
+        },
+        "env": {
+          "maxProperties": 32,
+          "patternProperties": {
+            "^[A-Z][A-Z0-9_]{0,63}$": {
+              "type": "string"
+            }
+          },
+          "title": "Env",
+          "type": "object"
+        },
+        "service_env": {
+          "maxProperties": 8,
+          "patternProperties": {
+            "^[A-Z][A-Z0-9_]{0,63}$": {
+              "pattern": "^[a-z](?:[a-z0-9-]{0,20}[a-z0-9])?$",
+              "type": "string"
+            }
+          },
+          "title": "Service Env",
+          "type": "object"
+        },
+        "secret_env": {
+          "maxProperties": 8,
+          "patternProperties": {
+            "^[A-Z][A-Z0-9_]{0,63}$": {
+              "pattern": "^[a-z][a-z0-9-]{0,63}$",
+              "type": "string"
+            }
+          },
+          "title": "Secret Env",
+          "type": "object"
+        }
+      },
+      "title": "StackService",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "app_id": {
+      "maxLength": 40,
+      "minLength": 3,
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+      "title": "App Id",
+      "type": "string"
+    },
+    "source_repository": {
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+      "title": "Source Repository",
+      "type": "string"
+    },
+    "source_repository_id": {
+      "maxLength": 24,
+      "pattern": "^[1-9][0-9]*$",
+      "title": "Source Repository Id",
+      "type": "string"
+    },
+    "source_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Source Commit",
+      "type": "string"
+    },
+    "workflow_run_id": {
+      "maxLength": 24,
+      "pattern": "^[1-9][0-9]*$",
+      "title": "Workflow Run Id",
+      "type": "string"
+    },
+    "run_attempt": {
+      "maxLength": 24,
+      "pattern": "^[1-9][0-9]*$",
+      "title": "Run Attempt",
+      "type": "string"
+    },
+    "platform_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Platform Commit",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 4,
+      "default": 4,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "release_tag": {
+      "title": "Release Tag",
+      "type": "string"
+    },
+    "verified_at": {
+      "title": "Verified At",
+      "type": "string"
+    },
+    "image": {
+      "title": "Image",
+      "type": "string"
+    },
+    "platforms": {
+      "additionalProperties": {
+        "$ref": "#/$defs/PublishedPlatform"
+      },
+      "title": "Platforms",
+      "type": "object"
+    },
+    "bundle_sha256": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Bundle Sha256",
+      "type": "string"
+    },
+    "provenance": {
+      "const": "Unsigned workflow evidence; admission must verify GitHub source/run identity",
+      "title": "Provenance",
+      "type": "string"
+    },
+    "stack": {
+      "$ref": "#/$defs/StackDefinition"
+    },
+    "stack_sha256": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Stack Sha256",
+      "type": "string"
+    },
+    "primary_bundle_sha256": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Primary Bundle Sha256",
+      "type": "string"
+    },
+    "components": {
+      "maxProperties": 7,
+      "minProperties": 1,
+      "patternProperties": {
+        "^[a-z](?:[a-z0-9-]{0,20}[a-z0-9])?$": {
+          "$ref": "#/$defs/ComponentEvidence"
+        }
+      },
+      "title": "Components",
+      "type": "object"
+    },
+    "dependency_images": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Dependency Images",
+      "type": "object"
+    },
+    "integration_tests": {
+      "const": "passed",
+      "title": "Integration Tests",
+      "type": "string"
+    }
+  },
+  "required": [
+    "app_id",
+    "source_repository",
+    "source_repository_id",
+    "source_commit",
+    "workflow_run_id",
+    "run_attempt",
+    "platform_commit",
+    "release_tag",
+    "verified_at",
+    "image",
+    "platforms",
+    "bundle_sha256",
+    "provenance",
+    "stack",
+    "stack_sha256",
+    "primary_bundle_sha256",
+    "components",
+    "dependency_images",
+    "integration_tests"
+  ],
+  "title": "StackReleaseEvidence",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

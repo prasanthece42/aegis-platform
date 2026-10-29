@@ -20,6 +20,7 @@ from aegis_platform.delivery import (
     verify_intent,
     verify_status,
 )
+from aegis_platform.stack import PROFILE
 
 
 def required_bootstrap(catalog, app_id, environment, policy, bootstrap_policy, chart):
@@ -73,6 +74,7 @@ def current_state(entry, environment, files, anchor, policy_hash=None):
         source_commit=state.source_commit,
         image_root_digest=state.image_root_digest,
         release_id=str(pointer["release_id"]),
+        release_evidence_hash=pointer["intent"].get("release_evidence_hash"),
     )
 
 
@@ -131,6 +133,10 @@ def proposal(
             or prior.intent_anchor != expected.intent_anchor
             or prior.source_commit != evidence.source_commit
             or prior.image_root_digest != evidence.image.rsplit("@", 1)[1]
+            or (
+                entry.runtime.profile_id == PROFILE
+                and prior.release_evidence_hash != intent.release_evidence_hash
+            )
         ):
             raise ValueError("Promotion no longer matches current prior-environment desired state")
         observed = verify_status(
@@ -166,7 +172,7 @@ def proposal(
             bindings[path] = expected_file
     # The renderer's public CLI stays DEV-only. Protected values are derived from
     # the same admitted release/profile after the prior-environment gate above.
-    if environment == "dev":
+    if environment == "dev" or entry.runtime.profile_id == PROFILE:
         values = release_values(catalog, entry.app_id, environment, evidence, bootstrap_policy)
     else:
         profile = validate_profile(bootstrap_policy, entry.runtime.resource_profile_id)
@@ -181,6 +187,11 @@ def proposal(
             "healthPath": entry.runtime.health_path,
             "resources": {"requests": profile["requests"], "limits": profile["limits"]},
         }
+    resolved_profile = validate_profile(bootstrap_policy, entry.runtime.resource_profile_id)
+    if entry.runtime.profile_id == PROFILE:
+        from aegis_platform.stack_plan import budget
+
+        resolved_profile["quota"] = budget(entry.runtime.stack, resolved_profile)
     state = DesiredState(
         app_id=entry.app_id,
         environment=environment,
@@ -194,9 +205,7 @@ def proposal(
         chart_version=entry.versions.chart_version,
         chart_sha256=entry.versions.chart_sha256,
         effective_values=values,
-        resolved_cluster_profile=validate_profile(
-            bootstrap_policy, entry.runtime.resource_profile_id
-        ),
+        resolved_cluster_profile=resolved_profile,
         controller_bindings=bindings,
     )
     base = f"applications/{entry.app_id}"

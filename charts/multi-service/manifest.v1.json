@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "version": "1.0.0",
+  "sha256": "sha256:011f602f1fedca04dd50fb80e32c47dd1361fecd5fe1de9366f96ff9a2593270",
+  "files": {
+    "Chart.yaml": "42182343a8dc562d43e493e42f75ff81a777a98f763c949aafc5e456cefc0ebd",
+    "templates/stack.yaml": "fb8ac8413a0171802a3d3a311664e429cdadee9e7a5a6692342e7552ee257323",
+    "values.schema.json": "171bc2112fae6f25acbf32fccc0bc7ac5a9cdd0062661d715a6508c694dcb22b",
+    "values.yaml": "08ff24339c13e883f968dd9531b551053c27d4d952eb2f4eafa84c378ca98558"
+  }
+}

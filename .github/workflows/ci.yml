@@ -68,6 +68,7 @@ jobs:
           python -m aegis_platform export-schemas
           python tooling/render_workflows.py
           python -m aegis_platform chart-identity > charts/web-service/manifest.v1.json
-          git diff --exit-code -- schemas charts/web-service/manifest.v1.json .github/workflows/python-web-ci.yml .github/workflows/python-web-release.yml
+          python -m aegis_platform chart-identity --chart charts/multi-service/1.0.0 > charts/multi-service/manifest.v1.json
+          git diff --exit-code -- schemas charts/web-service/manifest.v1.json charts/multi-service/manifest.v1.json .github/workflows/python-web-ci.yml .github/workflows/python-web-release.yml .github/workflows/python-stack-ci.yml .github/workflows/python-stack-release.yml
       - name: Build the shared contract package
         run: python -m hatchling build -t wheel

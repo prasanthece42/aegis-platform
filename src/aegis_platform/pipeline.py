@@ -28,7 +28,9 @@ def job_state(job):
     )
 
 
-def dev_pipeline(jobs, architectures=("amd64", "arm64"), delivery=None, complete=False):
+def dev_pipeline(
+    jobs, architectures=("amd64", "arm64"), delivery=None, complete=False, stack=False
+):
     expected = [
         ["01 Validate source"],
         ["02 Code quality"],
@@ -39,6 +41,12 @@ def dev_pipeline(jobs, architectures=("amd64", "arm64"), delivery=None, complete
         [f"07 Container security ({arch})" for arch in architectures],
         [f"08 Publish release ({arch})" for arch in architectures] + ["08 Verify release"],
     ]
+    if stack:
+        expected[1:3] = [["02–03 Validate stack source"] for _ in range(2)]
+        expected[3:5] = [["04–05 Stack security"] for _ in range(2)]
+        expected[5:7] = [
+            [f"06–07 Validate stack ({arch})" for arch in architectures] for _ in range(2)
+        ]
     stages = []
     for number, (name, names) in enumerate(zip(STAGES, expected, strict=False), 1):
         matches = [j for j in jobs if j.get("name", "").rsplit(" / ", 1)[-1] in names]

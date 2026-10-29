@@ -135,6 +135,8 @@ def validate_image(metadata: dict, context: ReleaseContext, architecture: str):
         or not re.fullmatch(r"sha256:[0-9a-f]{64}", metadata.get("Id", ""))
     ):
         raise ValueError("Loaded image does not match the expected app/source/platform")
+    if hasattr(context, "service_name") and labels.get("io.aegis.service") != context.service_name:
+        raise ValueError("Loaded image belongs to a different stack service")
 
 
 def verify_candidate(
@@ -313,7 +315,12 @@ def release_evidence(
             if getattr(child, field) != getattr(context, field):
                 raise ValueError("Child context differs from publication context")
     verify_oci_bundle(bundle, root, children)
-    return ReleaseEvidence.model_validate(
+    evidence_type = ReleaseEvidence
+    if hasattr(context, "service_name"):
+        from aegis_platform.stack_release import ComponentEvidence
+
+        evidence_type = ComponentEvidence
+    return evidence_type.model_validate(
         {
             **context.model_dump(),
             "schema_version": 3,

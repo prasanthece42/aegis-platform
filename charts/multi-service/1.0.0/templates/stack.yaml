@@ -1,0 +1,7 @@
+{{- if not .Values.plan }}
+{{- fail "A complete admitted multi-service plan is required" }}
+{{- end }}
+{{- range .Values.plan }}
+---
+{{ toYaml . }}
+{{- end }}

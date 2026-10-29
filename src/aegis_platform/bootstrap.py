@@ -9,6 +9,7 @@ from pathlib import Path
 from aegis_platform.canonical import digest
 from aegis_platform.catalog import Catalog, checked_path
 from aegis_platform.release import ReleaseEvidence, validate_repository
+from aegis_platform.stack import PROFILE, chart_family
 
 
 def chart_identity(chart: Path) -> dict:
@@ -91,6 +92,11 @@ def bootstrap_plan(
     ):
         raise ValueError("Chart does not match the approved catalog identity")
     profile = validate_profile(policy, resolved["runtime"]["resource_profile_id"])
+    is_stack = resolved["runtime"]["profile_id"] == PROFILE
+    if is_stack:
+        from aegis_platform.stack_plan import budget
+
+        profile["quota"] = budget(catalog.apps[app_id].runtime.stack, profile)
     namespace = target["namespace"]
     labels = {"aegis.io/app": app_id, "aegis.io/environment": environment}
     namespace_labels = {**labels}
@@ -115,7 +121,13 @@ def bootstrap_plan(
             ],
         },
     }
-    chart_path = f"charts/web-service/{identity['version']}"
+    if is_stack:
+        project["spec"]["namespaceResourceWhitelist"] += [
+            {"group": "apps", "kind": "StatefulSet"},
+            {"group": "", "kind": "ConfigMap"},
+            {"group": "", "kind": "PersistentVolumeClaim"},
+        ]
+    chart_path = f"charts/{chart_family(catalog.apps[app_id].runtime)}/{identity['version']}"
     values_relative = "../../../" + target["values_path"]
     application = {
         "apiVersion": "argoproj.io/v1alpha1",
@@ -214,6 +226,10 @@ def release_values(
     policy: dict,
     replicas: int = 1,
 ) -> dict:
+    if catalog.apps[app_id].runtime.profile_id == PROFILE:
+        from aegis_platform.stack_plan import release_values as stack_values
+
+        return stack_values(catalog, app_id, environment, release, policy)
     if environment != "dev":
         raise ValueError("Protected release planning requires the later promotion admission path")
     resolved = catalog.resolve(app_id, environment)

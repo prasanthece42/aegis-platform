@@ -28,6 +28,9 @@ class LiveConfig(Contract):
     allowed_owner_user_ids: list[Identifier]
     resource_profiles: dict[str, Profile]
     versions: Versions
+    multiservice_versions: Versions | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     cluster_id: str
     cluster_uid: str
     gitops_repository_id: Identifier
@@ -41,6 +44,12 @@ class LiveConfig(Contract):
 
     @model_validator(mode="after")
     def require_tls(self):
+        if self.multiservice_versions and (
+            self.multiservice_versions.workflow_commit != self.multiservice_versions.helper_commit
+            or self.multiservice_versions.workflow_commit == "0" * 40
+            or self.multiservice_versions.chart_sha256 == "sha256:" + "0" * 64
+        ):
+            raise ValueError("Multi-service activation requires matching pins and chart identity")
         if self.delivery_workflow_commit and not (
             self.gitops_repository and self.gitops_installation_id
         ):

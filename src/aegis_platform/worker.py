@@ -10,8 +10,9 @@ from aegis_platform.catalog import Catalog, CatalogPolicy, Cluster
 from aegis_platform.contracts import CatalogEntry
 from aegis_platform.delivery import DeliveryPolicy, verify_production_approval
 from aegis_platform.proposal import current_state, proposal
-from aegis_platform.release import ReleaseEvidence
 from aegis_platform.request import RequestTrust, verify_request
+from aegis_platform.stack import chart_family
+from aegis_platform.stack_release import parse_release
 
 
 def tree_files(api, revision, select):
@@ -104,7 +105,7 @@ class DeliveryWorker:
         head = self.gitops.repo("GET", "commits/" + quote(target.gitops_branch, safe=""))["sha"]
         prefixes = (
             f"applications/{entry.app_id}/",
-            f"charts/web-service/{entry.versions.chart_version}/",
+            f"charts/{chart_family(entry.runtime)}/{entry.versions.chart_version}/",
             f"clusters/{target.cluster_id}/bootstrap/{entry.app_id}/{environment}/",
         )
         exact = {
@@ -158,7 +159,7 @@ class DeliveryWorker:
         if len(assets) != 1:
             raise ValueError("Release receipt is missing or ambiguous")
         raw = source.repo("GET", "releases/assets/" + str(assets[0]["id"]), raw=True)
-        evidence = ReleaseEvidence.model_validate(strict_json(raw))
+        evidence = parse_release(raw)
         run = source.repo(
             "GET", f"actions/runs/{evidence.workflow_run_id}/attempts/{evidence.run_attempt}"
         )
@@ -187,7 +188,8 @@ class DeliveryWorker:
             catalog_revision=intent.catalog_revision,
             policy=policy,
             bootstrap_policy=bootstrap,
-            chart=self.root / f"charts/web-service/{entry.versions.chart_version}",
+            chart=self.root
+            / f"charts/{chart_family(entry.runtime)}/{entry.versions.chart_version}",
             raw_receipt=raw,
             release=release,
             repository=repository,

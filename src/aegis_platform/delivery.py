@@ -22,6 +22,8 @@ from aegis_platform.contracts import (
     Identifier,
 )
 from aegis_platform.release import ReleaseEvidence
+from aegis_platform.stack import PROFILE
+from aegis_platform.stack_release import StackReleaseEvidence, parse_release
 
 
 class DeliveryPolicy(Contract):
@@ -57,6 +59,7 @@ class CurrentIntent(Contract):
     source_commit: Commit
     image_root_digest: Digest
     release_id: Identifier
+    release_evidence_hash: Digest | None = None
 
 
 def timestamp(value: str) -> datetime:
@@ -90,7 +93,12 @@ def admit_release(
     """Admit retained bytes only after source/run identity is independently fetched."""
     from aegis_platform.canonical import strict_json
 
-    evidence = ReleaseEvidence.model_validate(strict_json(raw_receipt))
+    evidence = parse_release(strict_json(raw_receipt))
+    is_stack = entry.runtime.profile_id == PROFILE
+    if is_stack != isinstance(evidence, StackReleaseEvidence):
+        raise ValueError("Release profile differs from the approved runtime")
+    if is_stack and evidence.stack.model_dump() != entry.runtime.stack.model_dump():
+        raise ValueError("Release topology and environment differ from reviewed registration")
     source = entry.source
     repo_name = source.owner + "/" + source.name
     if (
@@ -123,9 +131,10 @@ def admit_release(
         or run.get("path") != ".github/workflows/release.yml"
     ):
         raise ValueError("Release was not produced by a successful default-branch release run")
+    family = "python-stack" if is_stack else "python-web"
     expected = {
-        f"{policy.platform_repository}/.github/workflows/python-web-release.yml",
-        f"{policy.platform_repository}/.github/workflows/python-web-ci.yml",
+        f"{policy.platform_repository}/.github/workflows/{family}-release.yml",
+        f"{policy.platform_repository}/.github/workflows/{family}-ci.yml",
     }
     found = set()
     for workflow in run.get("referenced_workflows", []):

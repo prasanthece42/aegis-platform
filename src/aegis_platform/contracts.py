@@ -5,6 +5,8 @@ from urllib.parse import unquote, urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
 
+from aegis_platform.stack import EnvName, Name, StackDefinition, public_setting
+
 Identifier = Annotated[str, Field(pattern=r"^[1-9][0-9]*$", max_length=24)]
 AppId = Annotated[
     str, Field(min_length=3, max_length=40, pattern=r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
@@ -48,12 +50,44 @@ class Runtime(Contract):
         return decoded
 
 
+class StackRuntime(Runtime):
+    profile_id: Literal["python312-multiservice"] = "python312-multiservice"
+    stack: StackDefinition
+    credentials_secret: str = Field(pattern=r"^[a-z][a-z0-9-]{0,62}$")
+    environment: dict[Name, dict[EnvName, str]] = Field(default_factory=dict, max_length=8)
+
+    @model_validator(mode="after")
+    def gateway(self):
+        if self.container_port != 8080 or self.health_path != "/health":
+            raise ValueError("Multi-service entrypoint uses port 8080 and /health")
+        for name, values in self.environment.items():
+            if (
+                name not in self.stack.services
+                or not set(values) <= self.stack.services[name].env.keys()
+            ):
+                raise ValueError("Only declared non-secret environment values can be overridden")
+            if any(not public_setting(k, v) for k, v in values.items()):
+                raise ValueError("Use bounded non-secret environment values")
+        return self
+
+
 class RegistrationFields(Contract):
     repository_id: Identifier
     app_id: AppId
     display_name: str = Field(min_length=1, max_length=80)
     owner_user_ids: list[Identifier] = Field(min_length=1, max_length=20)
-    runtime: Runtime
+    runtime: Runtime | StackRuntime
+
+    @model_validator(mode="after")
+    def owned_secret(self):
+        if (
+            isinstance(self.runtime, StackRuntime)
+            and self.runtime.credentials_secret != self.app_id + "-runtime"
+        ):
+            raise ValueError(
+                "Credentials must use the application's namespace-local runtime Secret"
+            )
+        return self
 
     @field_validator("display_name")
     @classmethod
@@ -114,7 +148,19 @@ class CatalogEntry(Contract):
     display_name: str
     source: Source
     access: Access
-    runtime: Runtime
+    runtime: Runtime | StackRuntime
+
+    @model_validator(mode="after")
+    def owned_secret(self):
+        if (
+            isinstance(self.runtime, StackRuntime)
+            and self.runtime.credentials_secret != self.app_id + "-runtime"
+        ):
+            raise ValueError(
+                "Credentials must use the application's namespace-local runtime Secret"
+            )
+        return self
+
     versions: Versions
     environments: dict[Environment, Target]
 

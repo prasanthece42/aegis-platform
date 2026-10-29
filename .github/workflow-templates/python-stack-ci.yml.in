@@ -1,0 +1,148 @@
+name: Aegis Python stack CI
+on:
+  workflow_call:
+    inputs:
+      app-id: {type: string, required: true}
+      platforms: {type: string, default: '["amd64"]'}
+      export-candidate: {type: boolean, default: false}
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prepare:
+    name: "01 Validate source"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      platform_repository: ${{ steps.resolve.outputs.platform_repository }}
+      platform_commit: ${{ steps.resolve.outputs.platform_commit }}
+      platforms: ${{ steps.resolve.outputs.platforms }}
+      run_started_at: ${{ steps.resolve.outputs.run_started_at }}
+    steps:
+      - name: Resolve the immutable stack workflow
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AEGIS_APP_ID: ${{ inputs.app-id }}
+          AEGIS_PLATFORMS: ${{ inputs.platforms }}
+          AEGIS_PORT: '8080'
+          AEGIS_HEALTH_PATH: /health
+          AEGIS_EXPORT_CANDIDATE: ${{ inputs.export-candidate }}
+        shell: python
+        run: |
+__AEGIS_BOOTSTRAP__
+  checks:
+    name: "02–03 Validate stack source"
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ needs.prepare.outputs.platform_repository }}
+          ref: ${{ needs.prepare.outputs.platform_commit }}
+          path: platform
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --require-hashes -r platform/requirements.txt
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: source
+          persist-credentials: false
+      - run: python platform/tooling/stack_ci.py checks --source source
+  security:
+    name: "04–05 Stack security"
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ needs.prepare.outputs.platform_repository }}
+          ref: ${{ needs.prepare.outputs.platform_commit }}
+          path: platform
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --require-hashes -r platform/requirements.txt
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: source
+          persist-credentials: false
+      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.76.1
+          cache: true
+      - name: Install isolated trusted source scanners
+        run: |
+          python -m venv "$RUNNER_TEMP/aegis-security-venv"
+          "$RUNNER_TEMP/aegis-security-venv/bin/python" -m pip install --require-hashes -r platform/security/requirements.txt
+      - name: Scan source without executing application code
+        env:
+          AEGIS_BANDIT_PYTHON: ${{ runner.temp }}/aegis-security-venv/bin/python
+        run: python platform/tooling/stack_ci.py security --source source
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ${{ inputs.app-id }}-stack-source-security-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            source-security.json
+            dependencies.json
+          retention-days: 14
+          if-no-files-found: warn
+  candidate:
+    name: "06–07 Validate stack (${{ matrix.arch }})"
+    needs: [prepare, checks, security]
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON(needs.prepare.outputs.platforms) }}
+    env:
+      APP_ID: ${{ inputs.app-id }}
+      PLATFORM_COMMIT: ${{ needs.prepare.outputs.platform_commit }}
+      ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ needs.prepare.outputs.platform_repository }}
+          ref: ${{ needs.prepare.outputs.platform_commit }}
+          path: platform
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --require-hashes -r platform/requirements.txt
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: source
+          persist-credentials: false
+      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.76.1
+          cache: true
+      - name: Build, scan and exercise the complete dependency-backed stack
+        run: python platform/tooling/stack_ci.py build --source source --output candidate
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: inputs.export-candidate
+        with:
+          name: ${{ inputs.app-id }}-stack-candidate-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: candidate/
+          retention-days: 1
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ${{ inputs.app-id }}-stack-scans-${{ matrix.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            candidate/*/image.json
+            candidate/*/sbom.cdx.json
+          retention-days: 14
+          if-no-files-found: warn

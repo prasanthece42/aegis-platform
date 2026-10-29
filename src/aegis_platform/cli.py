@@ -32,7 +32,7 @@ def main():
     bootstrap.add_argument("--environment", choices=["dev", "staging", "prod"], required=True)
     bootstrap.add_argument("--context", type=Path, required=True)
     bootstrap.add_argument("--bootstrap-policy", type=Path, default=Path("policies/bootstrap.json"))
-    bootstrap.add_argument("--chart", type=Path, default=Path("charts/web-service/1.0.0"))
+    bootstrap.add_argument("--chart", type=Path)
     bootstrap.add_argument("--output", type=Path, required=True)
     release = commands.add_parser("render-release")
     release.add_argument("--app", required=True)
@@ -101,6 +101,13 @@ def main():
         if args.command == "render-bootstrap":
             from aegis_platform.bootstrap import bootstrap_plan, write_plan
             from aegis_platform.canonical import strict_json
+            from aegis_platform.stack import chart_family
+
+            entry = catalog.apps[args.app]
+            selected_chart = (
+                args.chart
+                or Path("charts") / chart_family(entry.runtime) / entry.versions.chart_version
+            )
 
             files = bootstrap_plan(
                 catalog,
@@ -108,16 +115,16 @@ def main():
                 args.environment,
                 strict_json(args.context.read_bytes()),
                 strict_json(args.bootstrap_policy.read_bytes()),
-                args.chart,
+                selected_chart,
             )
             write_plan(files, args.output)
             print("PASS: bootstrap review files rendered; no resources applied")
         elif args.command == "render-release":
             from aegis_platform.bootstrap import release_values, write_plan
             from aegis_platform.canonical import strict_json
-            from aegis_platform.release import ReleaseEvidence
+            from aegis_platform.stack_release import parse_release
 
-            evidence = ReleaseEvidence.model_validate(strict_json(args.release.read_bytes()))
+            evidence = parse_release(args.release.read_bytes())
             values = release_values(
                 catalog, args.app, "dev", evidence, strict_json(args.bootstrap_policy.read_bytes())
             )
@@ -167,9 +174,11 @@ def export_schemas(directory: Path):
     from aegis_platform.observability_service import ObservabilityServicePolicy
     from aegis_platform.portal_config import LiveConfig
     from aegis_platform.portal_owner import PortalOwnerPolicy
-    from aegis_platform.portal_system import PortalSystemPolicy, PortalUploadPolicy
+    from aegis_platform.portal_system import PortalSystemPolicy
     from aegis_platform.release import PublishedPlatform, ReleaseEvidence
     from aegis_platform.request import RequestTrust
+    from aegis_platform.stack import StackDefinition
+    from aegis_platform.stack_release import StackReleaseEvidence
 
     directory.mkdir(parents=True, exist_ok=True)
     for model, name in [
@@ -182,18 +191,19 @@ def export_schemas(directory: Path):
         (RegistrationSubmission, "registration-submission"),
         (ReleaseEvidence, "release-evidence"),
         (PublishedPlatform, "published-platform"),
+        (StackDefinition, "stack-definition"),
+        (StackReleaseEvidence, "stack-release-evidence"),
         (DeliveryPolicy, "delivery-policy"),
         (DeploymentFields, "deployment-fields"),
         (DeploymentSubmission, "deployment-submission"),
         (RequestTrust, "request-trust"),
         (LiveConfig, "portal-config"),
         (PortalSystemPolicy, "portal-system-policy"),
-        (PortalUploadPolicy, "portal-uploads-policy"),
         (PortalOwnerPolicy, "portal-owner-policy"),
         (ObservabilityPolicy, "observability-policy"),
         (ObservabilityServicePolicy, "observability-service-policy"),
     ]:
         schema = model.model_json_schema()
         schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
-        version = 3 if model is ReleaseEvidence else 1
+        version = 4 if model is StackReleaseEvidence else 3 if model is ReleaseEvidence else 1
         (directory / f"{name}.v{version}.json").write_text(json.dumps(schema, indent=2) + "\n")

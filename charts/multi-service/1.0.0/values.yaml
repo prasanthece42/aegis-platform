@@ -1,0 +1,8 @@
+# Empty defaults cannot deploy an application. The admission renderer supplies the plan.
+appId: unconfigured
+environment: dev
+sourceCommit: '0000000000000000000000000000000000000000'
+image: {}
+stackSha256: ''
+images: {}
+plan: []

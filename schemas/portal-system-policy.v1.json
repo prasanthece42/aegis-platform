@@ -82,6 +82,17 @@
         "versions": {
           "$ref": "#/$defs/Versions"
         },
+        "multiservice_versions": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Versions"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "cluster_id": {
           "title": "Cluster Id",
           "type": "string"
