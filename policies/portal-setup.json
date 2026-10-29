@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "enabled": true,
+  "platform_repository_id": "1435080811",
+  "gitops_repository_id": "1433742863",
+  "portal_app_id": "5488289",
+  "cluster_id": "kind-local",
+  "cluster_uid": "668172eb-130b-4b59-8629-7448aaa382e9",
+  "source_owner": "prasanthece42",
+  "operator_user_ids": ["4831204"],
+  "environment": "dev",
+  "installation_method": "enrolled_operator"
+}
