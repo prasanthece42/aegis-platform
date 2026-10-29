@@ -1,0 +1,217 @@
+{
+  "schema_version": 1,
+  "app_id": "commerce-demo2",
+  "display_name": "commerce-demo2",
+  "source": {
+    "repository_id": "1439071635",
+    "installation_id": "175648688",
+    "owner": "prasanthece42",
+    "name": "commerce-demo2",
+    "default_branch": "main"
+  },
+  "access": {
+    "owner_user_ids": [
+      "4831204"
+    ],
+    "viewer_user_ids": [],
+    "deployer_user_ids_by_environment": {
+      "dev": [
+        "4831204"
+      ]
+    }
+  },
+  "runtime": {
+    "profile_id": "python312-multiservice",
+    "container_port": 8080,
+    "health_path": "/health",
+    "resource_profile_id": "small",
+    "stack": {
+      "schema_version": 1,
+      "profile_id": "python312-multiservice",
+      "primary_service": "catalog",
+      "services": {
+        "catalog": {
+          "context": ".",
+          "dockerfile": "Dockerfile",
+          "build_args": {
+            "SERVICE": "catalog"
+          },
+          "port": 8000,
+          "health_path": "/ready",
+          "replicas": 1,
+          "env": {
+            "SERVICE_NAME": "catalog",
+            "DB_POOL_SIZE": "8",
+            "HTTP_TIMEOUT_SECONDS": "5",
+            "CACHE_TTL_SECONDS": "30"
+          },
+          "service_env": {},
+          "secret_env": {
+            "DATABASE_URL": "database-url",
+            "REDIS_URL": "redis-url"
+          }
+        },
+        "inventory": {
+          "context": ".",
+          "dockerfile": "Dockerfile",
+          "build_args": {
+            "SERVICE": "inventory"
+          },
+          "port": 8000,
+          "health_path": "/ready",
+          "replicas": 1,
+          "env": {
+            "SERVICE_NAME": "inventory",
+            "DB_POOL_SIZE": "8",
+            "HTTP_TIMEOUT_SECONDS": "5"
+          },
+          "service_env": {},
+          "secret_env": {
+            "DATABASE_URL": "database-url"
+          }
+        },
+        "cart": {
+          "context": ".",
+          "dockerfile": "Dockerfile",
+          "build_args": {
+            "SERVICE": "cart"
+          },
+          "port": 8000,
+          "health_path": "/ready",
+          "replicas": 1,
+          "env": {
+            "SERVICE_NAME": "cart",
+            "DB_POOL_SIZE": "8",
+            "HTTP_TIMEOUT_SECONDS": "5",
+            "CART_TTL_SECONDS": "3600"
+          },
+          "service_env": {
+            "CATALOG_URL": "catalog"
+          },
+          "secret_env": {
+            "REDIS_URL": "redis-url"
+          }
+        },
+        "orders": {
+          "context": ".",
+          "dockerfile": "Dockerfile",
+          "build_args": {
+            "SERVICE": "orders"
+          },
+          "port": 8000,
+          "health_path": "/ready",
+          "replicas": 2,
+          "env": {
+            "SERVICE_NAME": "orders",
+            "DB_POOL_SIZE": "8",
+            "HTTP_TIMEOUT_SECONDS": "5"
+          },
+          "service_env": {
+            "CATALOG_URL": "catalog",
+            "INVENTORY_URL": "inventory",
+            "CART_URL": "cart",
+            "PAYMENTS_URL": "payments",
+            "NOTIFICATIONS_URL": "notifications"
+          },
+          "secret_env": {
+            "DATABASE_URL": "database-url"
+          }
+        },
+        "payments": {
+          "context": ".",
+          "dockerfile": "Dockerfile",
+          "build_args": {
+            "SERVICE": "payments"
+          },
+          "port": 8000,
+          "health_path": "/ready",
+          "replicas": 1,
+          "env": {
+            "SERVICE_NAME": "payments",
+            "DB_POOL_SIZE": "8",
+            "HTTP_TIMEOUT_SECONDS": "5"
+          },
+          "service_env": {},
+          "secret_env": {
+            "DATABASE_URL": "database-url"
+          }
+        },
+        "notifications": {
+          "context": ".",
+          "dockerfile": "Dockerfile",
+          "build_args": {
+            "SERVICE": "notifications"
+          },
+          "port": 8000,
+          "health_path": "/ready",
+          "replicas": 1,
+          "env": {
+            "SERVICE_NAME": "notifications",
+            "DB_POOL_SIZE": "8",
+            "HTTP_TIMEOUT_SECONDS": "5"
+          },
+          "service_env": {},
+          "secret_env": {
+            "DATABASE_URL": "database-url"
+          }
+        }
+      },
+      "dependencies": "postgres17-redis7-nginx"
+    },
+    "credentials_secret": "commerce-demo2-runtime",
+    "environment": {
+      "catalog": {
+        "SERVICE_NAME": "catalog",
+        "DB_POOL_SIZE": "8",
+        "HTTP_TIMEOUT_SECONDS": "5",
+        "CACHE_TTL_SECONDS": "30"
+      },
+      "inventory": {
+        "SERVICE_NAME": "inventory",
+        "DB_POOL_SIZE": "8",
+        "HTTP_TIMEOUT_SECONDS": "5"
+      },
+      "cart": {
+        "SERVICE_NAME": "cart",
+        "DB_POOL_SIZE": "8",
+        "HTTP_TIMEOUT_SECONDS": "5",
+        "CART_TTL_SECONDS": "3600"
+      },
+      "orders": {
+        "SERVICE_NAME": "orders",
+        "DB_POOL_SIZE": "8",
+        "HTTP_TIMEOUT_SECONDS": "5"
+      },
+      "payments": {
+        "SERVICE_NAME": "payments",
+        "DB_POOL_SIZE": "8",
+        "HTTP_TIMEOUT_SECONDS": "5"
+      },
+      "notifications": {
+        "SERVICE_NAME": "notifications",
+        "DB_POOL_SIZE": "8",
+        "HTTP_TIMEOUT_SECONDS": "5"
+      }
+    }
+  },
+  "versions": {
+    "workflow_commit": "64f73a3430cd16a79caae09a4acbe65bf6acc392",
+    "helper_commit": "64f73a3430cd16a79caae09a4acbe65bf6acc392",
+    "chart_version": "1.0.0",
+    "chart_sha256": "sha256:011f602f1fedca04dd50fb80e32c47dd1361fecd5fe1de9366f96ff9a2593270"
+  },
+  "environments": {
+    "dev": {
+      "delivery_mode": "manual",
+      "cluster_id": "kind-local",
+      "cluster_uid": "668172eb-130b-4b59-8629-7448aaa382e9",
+      "namespace": "aegis-commerce-demo2-dev",
+      "argo_application": "commerce-demo2-dev",
+      "argo_project": "commerce-demo2-dev",
+      "gitops_repository_id": "1433742863",
+      "gitops_branch": "main",
+      "values_path": "applications/commerce-demo2/environments/dev/values.yaml",
+      "access_mapping_id": null
+    }
+  }
+}
