@@ -32,6 +32,17 @@ RUNTIME_CONTRACT = {
 }
 
 
+UPLOAD_RUNTIME_CONTRACT = {**RUNTIME_CONTRACT, "zip_uploads": 1}
+
+
+class PortalUploadPolicy(Contract):
+    owner: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9-]{0,38}$")
+    owner_type: Literal["User", "Organization"]
+    visibility: Literal["public"] = "public"
+    storage_class: str = Field(pattern=r"^[a-z0-9][a-z0-9.-]{0,62}$")
+    storage_size: Literal["1Gi"] = "1Gi"
+
+
 class PortalSystemPolicy(Contract):
     schema_version: Literal[1] = 1
     branch: Literal["platform-system"] = "platform-system"
@@ -40,6 +51,7 @@ class PortalSystemPolicy(Contract):
     source_repository_id: Identifier
     signing_public_key_base64: str = Field(min_length=44, max_length=44)
     configuration: LiveConfig
+    uploads: PortalUploadPolicy | None = None
 
     @model_validator(mode="after")
     def delivery_is_bound(self):
@@ -244,6 +256,22 @@ def system_plan(
             },
         },
     }
+    if policy.uploads:
+        upload = policy.uploads
+        container = deployment["spec"]["template"]["spec"]["containers"][0]
+        container["env"].extend(
+            [
+                {"name": "AEGIS_UPLOAD_OWNER", "value": upload.owner},
+                {"name": "AEGIS_UPLOAD_OWNER_TYPE", "value": upload.owner_type},
+                {"name": "AEGIS_UPLOAD_DATA", "value": "/var/lib/aegis/uploads/uploads.sqlite3"},
+            ]
+        )
+        container["volumeMounts"].append(
+            {"name": "uploads", "mountPath": "/var/lib/aegis/uploads", "readOnly": False}
+        )
+        deployment["spec"]["template"]["spec"]["volumes"].append(
+            {"name": "uploads", "persistentVolumeClaim": {"claimName": "aegis-portal-uploads"}}
+        )
     service = {
         "apiVersion": "v1",
         "kind": "Service",
@@ -334,6 +362,24 @@ def system_plan(
             ("configmap", configmap),
         ]
     }
+    if policy.uploads:
+        files[f"{BASE}/manifests/uploads-pvc.json"] = {
+            "apiVersion": "v1",
+            "kind": "PersistentVolumeClaim",
+            "metadata": {
+                **metadata("aegis-portal-uploads"),
+                "annotations": {"argocd.argoproj.io/sync-options": "Prune=false"},
+            },
+            "spec": {
+                "accessModes": ["ReadWriteOnce"],
+                "storageClassName": policy.uploads.storage_class,
+                "resources": {"requests": {"storage": policy.uploads.storage_size}},
+            },
+        }
+        project["spec"]["namespaceResourceWhitelist"].append(
+            {"group": "", "kind": "PersistentVolumeClaim"}
+        )
+        quota["spec"]["hard"].update({"persistentvolumeclaims": "1", "requests.storage": "1Gi"})
     files.update(
         {
             f"{BASE}/bootstrap/{name}.json": resource
@@ -347,6 +393,9 @@ def system_plan(
         }
     )
     files[f"{BASE}/releases/{release.release_tag}.json"] = raw_receipt
+    policy_data = policy.model_dump()
+    if policy.uploads is None:
+        policy_data.pop("uploads")
     files[f"{BASE}/review.json"] = {
         "schema_version": 1,
         "app_id": entry.app_id,
@@ -355,7 +404,7 @@ def system_plan(
         "release_evidence_hash": receipt_hash(raw_receipt),
         "image": release.image,
         "configuration_hash": config_hash,
-        "policy_hash": digest(policy.model_dump()),
+        "policy_hash": digest(policy_data),
         "cluster_uid": config.cluster_uid,
         "namespace": NAMESPACE,
         "requires_maintainer_review": True,

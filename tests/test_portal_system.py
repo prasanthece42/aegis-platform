@@ -230,3 +230,54 @@ def test_system_gate_requires_exact_manifests_and_current_head_human_review(
     else:
         portal_system.check_pr(engine, 1)
         assert observations[-1]["state"] == ("success" if review == "human" else "pending")
+
+
+def test_upload_storage_is_explicit_and_persistent(system_case):
+    from aegis_platform.portal_system import PortalUploadPolicy
+
+    entry, policy, delivery, bootstrap, raw, release_id = system_case
+    baseline = system_plan(*system_case)
+    assert not any("pvc" in path for path in baseline)
+    policy.uploads = PortalUploadPolicy(
+        owner="prasanthece42", owner_type="User", storage_class="standard"
+    )
+    files = system_plan(entry, policy, delivery, bootstrap, raw, release_id)
+    claim = files[BASE + "/manifests/uploads-pvc.json"]
+    assert claim["spec"]["accessModes"] == ["ReadWriteOnce"]
+    assert claim["spec"]["resources"]["requests"]["storage"] == "1Gi"
+    assert claim["metadata"]["annotations"]["argocd.argoproj.io/sync-options"] == "Prune=false"
+    pod = files[BASE + "/manifests/deployment.json"]["spec"]["template"]["spec"]
+    assert pod["containers"][0]["securityContext"]["readOnlyRootFilesystem"]
+    env = {item["name"]: item.get("value") for item in pod["containers"][0]["env"]}
+    assert env["AEGIS_UPLOAD_OWNER"] == "prasanthece42"
+    assert env["AEGIS_UPLOAD_OWNER_TYPE"] == "User"
+    assert env["AEGIS_UPLOAD_DATA"] == "/var/lib/aegis/uploads/uploads.sqlite3"
+    volume = next(v for v in pod["volumes"] if v["name"] == "uploads")
+    assert volume["persistentVolumeClaim"]["claimName"] == "aegis-portal-uploads"
+    whitelist = files[BASE + "/bootstrap/project.json"]["spec"]["namespaceResourceWhitelist"]
+    assert {"group": "", "kind": "PersistentVolumeClaim"} in whitelist
+    assert files[BASE + "/bootstrap/quota.json"]["spec"]["hard"]["requests.storage"] == "1Gi"
+
+
+def test_separate_upload_policy_keeps_legacy_system_configuration_compatible(system_case):
+    from aegis_platform.portal_system import PortalSystemPolicy
+
+    policy = system_case[1]
+    original = policy.model_dump()
+    original.pop("uploads")
+    upload = {"owner": "prasanthece42", "owner_type": "User", "storage_class": "standard"}
+
+    class Platform:
+        def file(self, path, revision):
+            assert revision == "a" * 40
+            return canonical(upload if path.endswith("portal-uploads.json") else original)
+
+        def repo(self, method, path):
+            assert method == "GET" and path == "contents/policies?ref=" + "a" * 40
+            return [{"path": "policies/portal-uploads.json"}]
+
+    parsed = portal_system.reviewed_system_policy(Platform(), "a" * 40)
+    assert parsed.uploads.owner == "prasanthece42"
+    assert PortalSystemPolicy.model_validate(original).uploads is None
+    files = system_plan(*system_case)
+    assert files[BASE + "/review.json"]["policy_hash"] == digest(original)

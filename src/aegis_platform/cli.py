@@ -167,7 +167,7 @@ def export_schemas(directory: Path):
     from aegis_platform.observability_service import ObservabilityServicePolicy
     from aegis_platform.portal_config import LiveConfig
     from aegis_platform.portal_owner import PortalOwnerPolicy
-    from aegis_platform.portal_system import PortalSystemPolicy
+    from aegis_platform.portal_system import PortalSystemPolicy, PortalUploadPolicy
     from aegis_platform.release import PublishedPlatform, ReleaseEvidence
     from aegis_platform.request import RequestTrust
 
@@ -188,6 +188,7 @@ def export_schemas(directory: Path):
         (RequestTrust, "request-trust"),
         (LiveConfig, "portal-config"),
         (PortalSystemPolicy, "portal-system-policy"),
+        (PortalUploadPolicy, "portal-uploads-policy"),
         (PortalOwnerPolicy, "portal-owner-policy"),
         (ObservabilityPolicy, "observability-policy"),
         (ObservabilityServicePolicy, "observability-service-policy"),
