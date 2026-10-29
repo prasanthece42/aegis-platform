@@ -33,8 +33,8 @@
       }
     },
     "versions": {
-      "workflow_commit": "b4f46baa41dc250a88c86f63ecb0949d5f14af02",
-      "helper_commit": "b4f46baa41dc250a88c86f63ecb0949d5f14af02",
+      "workflow_commit": "5ea1b7e414b2e1f23fad849127e1bb72ded84b45",
+      "helper_commit": "5ea1b7e414b2e1f23fad849127e1bb72ded84b45",
       "chart_version": "1.0.0",
       "chart_sha256": "sha256:13c8977cb701a05fcff28fa6cf22067146ed56ad05d6ce760499a22e11f79570"
     },
