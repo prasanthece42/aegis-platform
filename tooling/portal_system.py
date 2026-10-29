@@ -14,19 +14,40 @@ from aegis_platform.delivery import (
     verify_production_approval,
     verify_status,
 )
-from aegis_platform.portal_system import BASE, RUNTIME_CONTRACT, PortalSystemPolicy, system_plan
+from aegis_platform.portal_system import (
+    BASE,
+    RUNTIME_CONTRACT,
+    UPLOAD_RUNTIME_CONTRACT,
+    PortalSystemPolicy,
+    PortalUploadPolicy,
+    system_plan,
+)
 from aegis_platform.release import ReleaseEvidence
 from aegis_platform.worker import tree_files
 from tooling.delivery import worker
+
+
+def reviewed_system_policy(platform, revision):
+    policy = PortalSystemPolicy.model_validate(
+        strict_json(platform.file("policies/portal-system.json", revision))
+    )
+    paths = platform.repo("GET", f"contents/policies?ref={revision}")
+    if not isinstance(paths, list):
+        raise ValueError("Reviewed policy directory is unavailable")
+    if any(item.get("path") == "policies/portal-uploads.json" for item in paths):
+        if policy.uploads is not None:
+            raise ValueError("Upload policy must have one unambiguous source")
+        policy.uploads = PortalUploadPolicy.model_validate(
+            strict_json(platform.file("policies/portal-uploads.json", revision))
+        )
+    return policy
 
 
 def admitted_plan(engine, release_id):
     from datetime import UTC, datetime
 
     revision, catalog, delivery, trust, bootstrap = engine.snapshot()
-    policy = PortalSystemPolicy.model_validate(
-        strict_json(engine.platform.file("policies/portal-system.json", revision))
-    )
+    policy = reviewed_system_policy(engine.platform, revision)
     entry = catalog.apps["aegis-portal"]
     source = engine.source_factory(entry)
     release = source.repo("GET", "releases/" + str(int(release_id)))
@@ -36,7 +57,10 @@ def admitted_plan(engine, release_id):
     raw = source.repo("GET", "releases/assets/" + str(assets[0]["id"]), raw=True)
     evidence = ReleaseEvidence.model_validate(strict_json(raw))
     contract = strict_json(source.file("app/portal-profile.json", evidence.source_commit))
-    if canonical(contract) != canonical(RUNTIME_CONTRACT):
+    allowed_contracts = (
+        [UPLOAD_RUNTIME_CONTRACT] if policy.uploads else [RUNTIME_CONTRACT, UPLOAD_RUNTIME_CONTRACT]
+    )
+    if canonical(contract) not in [canonical(item) for item in allowed_contracts]:
         raise ValueError(
             "Selected image source does not declare the required portal runtime contract"
         )
