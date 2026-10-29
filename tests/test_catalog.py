@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from aegis_platform.canonical import strict_json
 from aegis_platform.catalog import Catalog, CatalogPolicy, Cluster, checked_path, load_catalog
 from aegis_platform.contracts import CatalogEntry
 
@@ -121,6 +122,20 @@ def test_active_catalog_has_no_fabricated_enrollments():
     )
     assert all(
         cluster.cluster_uid != "demo-cluster-not-enrolled" for cluster in loaded.clusters.values()
+    )
+
+
+def test_live_portal_profiles_are_enabled_in_the_catalog_policy():
+    root = Path(__file__).resolve().parents[1]
+    config = strict_json((root / "policies/portal-system.json").read_bytes())["configuration"]
+    policy = CatalogPolicy.model_validate(
+        strict_json((root / "policies/catalog.json").read_bytes())
+    )
+    offered = {"python312-web"}
+    if config.get("multiservice_versions"):
+        offered.add("python312-multiservice")
+    assert offered <= set(policy.runtime_profile_ids), (
+        "Portal registration offers a profile that catalog admission rejects"
     )
 
 
