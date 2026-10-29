@@ -1,3 +1,1 @@
-"""Shared Aegis platform contracts, versioned independently of application code."""
-
-__version__ = "0.4.8"
+__version__ = "0.5.1"

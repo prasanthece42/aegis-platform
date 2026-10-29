@@ -9,14 +9,24 @@ def render_ci() -> str:
     return render_workflow("ci")
 
 
-def render_workflow(kind: str) -> str:
+def render_workflow(kind: str, family="python-web") -> str:
     if kind not in {"ci", "release"}:
         raise ValueError("Unknown workflow family")
-    template = (ROOT / f".github/workflow-templates/python-web-{kind}.yml.in").read_text()
+    if family not in {"python-web", "python-stack"}:
+        raise ValueError("Unknown workflow family")
+    template = (ROOT / f".github/workflow-templates/{family}-{kind}.yml.in").read_text()
     bootstrap = (ROOT / "src/aegis_platform/workflow.py").read_text().rstrip()
     if kind == "release":
         bootstrap = bootstrap.replace(
             'WORKFLOW = "python-web-ci.yml"', 'WORKFLOW = "python-web-release.yml"'
+        )
+    if family == "python-stack":
+        bootstrap = bootstrap.replace(
+            f'WORKFLOW = "python-web-{kind}.yml"', f'WORKFLOW = "python-stack-{kind}.yml"'
+        )
+        line = 'output.write("platforms=" + json.dumps(archs, separators=(",", ":")) + "\\n")'
+        bootstrap = bootstrap.replace(
+            line, line + '\n        output.write("run_started_at=" + run["run_started_at"] + "\\n")'
         )
     return template.replace(
         "__AEGIS_BOOTSTRAP__",
@@ -25,5 +35,8 @@ def render_workflow(kind: str) -> str:
 
 
 if __name__ == "__main__":
-    for kind in ["ci", "release"]:
-        (ROOT / f".github/workflows/python-web-{kind}.yml").write_text(render_workflow(kind))
+    for family in ["python-web", "python-stack"]:
+        for kind in ["ci", "release"]:
+            (ROOT / f".github/workflows/{family}-{kind}.yml").write_text(
+                render_workflow(kind, family)
+            )

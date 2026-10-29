@@ -1,0 +1,5 @@
+apiVersion: v2
+name: aegis-multi-service
+description: Platform-rendered bounded application stack; admission owns exact values
+version: 1.0.0
+type: application

@@ -18,6 +18,7 @@ from aegis_platform.contracts import Contract
 from aegis_platform.delivery import cache_fingerprint
 from aegis_platform.proposal import current_state
 from aegis_platform.release import ReleaseEvidence
+from aegis_platform.stack_release import StackReleaseEvidence, parse_release, verify_stack_bundle
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -168,7 +169,7 @@ class LocalAgent:
 
     def prepare(self, app_id, release_id):
         from aegis_platform.delivery import admit_release
-        from aegis_platform.release import file_hash, verify_oci_bundle
+        from aegis_platform.release import file_hash
 
         _revision, catalog, policy, _trust, _bootstrap = self.worker.snapshot()
         entry = catalog.apps[app_id]
@@ -179,7 +180,7 @@ class LocalAgent:
         if len(assets) != 1:
             raise ValueError("Release receipt is missing or ambiguous")
         raw = source.repo("GET", "releases/assets/" + str(assets[0]["id"]), raw=True)
-        evidence = ReleaseEvidence.model_validate(strict_json(raw))
+        evidence = parse_release(raw)
         run = source.repo(
             "GET", f"actions/runs/{evidence.workflow_run_id}/attempts/{evidence.run_attempt}"
         )
@@ -208,48 +209,38 @@ class LocalAgent:
                 archive = directory / "image.oci.tar"
                 if file_hash(archive) != evidence.bundle_sha256:
                     raise ValueError("Retained OCI bundle checksum differs")
-                root = evidence.image.rsplit("@", 1)[1]
-                verify_oci_bundle(archive, root, evidence.platforms)
-                imported = directory / "kind-import.oci.tar"
-                normalize_bundle(archive, imported, evidence)
-                verify_oci_bundle(imported, root, evidence.platforms)
-                command(
-                    [
-                        self.config.kind_binary,
-                        "load",
-                        "image-archive",
-                        str(imported),
-                        "--name",
-                        self.config.kind_cluster,
-                    ],
-                    timeout=300,
-                )
-                ctr = [
-                    "docker",
-                    "exec",
-                    self.config.kind_node,
-                    "ctr",
-                    "--namespace",
-                    "k8s.io",
-                    "images",
-                ]
-                rows = command(ctr + ["list"]).splitlines()
-                matching = [
-                    line.split()[0]
-                    for line in rows
-                    if len(line.split()) > 2 and line.split()[2] == root
-                ]
-                if not matching:
-                    raise ValueError("Containerd did not retain the exact registry index")
-                command(ctr + ["tag", "--force", matching[0], evidence.image])
-                rows = command(ctr + ["list"]).splitlines()
-                if not any(
-                    len(row.split()) > 2
-                    and row.split()[0] == evidence.image
-                    and row.split()[2] == root
-                    for row in rows
-                ):
-                    raise ValueError("Containerd digest reference verification failed")
+                if isinstance(evidence, StackReleaseEvidence):
+                    verify_stack_bundle(
+                        archive,
+                        evidence,
+                        consume=lambda _name, graph, child: self.cache_graph(graph, child),
+                    )
+                    from aegis_platform.stack_plan import DEPENDENCY_IMAGES
+
+                    architecture = self.get("node", self.config.kind_node)["status"]["nodeInfo"][
+                        "architecture"
+                    ]
+                    if architecture not in {"amd64", "arm64"}:
+                        raise ValueError("Unsupported enrolled node architecture")
+                    for image in DEPENDENCY_IMAGES.values():
+                        command(
+                            [
+                                "docker",
+                                "exec",
+                                self.config.kind_node,
+                                "ctr",
+                                "--namespace",
+                                "k8s.io",
+                                "images",
+                                "pull",
+                                "--platform",
+                                "linux/" + architecture,
+                                image,
+                            ],
+                            timeout=300,
+                        )
+                else:
+                    self.cache_graph(archive, evidence)
         except (ValueError, OSError, subprocess.SubprocessError):
             source.repo(
                 "POST",
@@ -276,6 +267,49 @@ class LocalAgent:
             "image": evidence.image,
             "cache": "verified",
         }
+
+    def cache_graph(self, archive, evidence):
+        from aegis_platform.release import verify_oci_bundle
+
+        directory = archive.parent
+        root = evidence.image.rsplit("@", 1)[1]
+        verify_oci_bundle(archive, root, evidence.platforms)
+        imported = directory / "kind-import.oci.tar"
+        normalize_bundle(archive, imported, evidence)
+        verify_oci_bundle(imported, root, evidence.platforms)
+        command(
+            [
+                self.config.kind_binary,
+                "load",
+                "image-archive",
+                str(imported),
+                "--name",
+                self.config.kind_cluster,
+            ],
+            timeout=300,
+        )
+        ctr = [
+            "docker",
+            "exec",
+            self.config.kind_node,
+            "ctr",
+            "--namespace",
+            "k8s.io",
+            "images",
+        ]
+        rows = command(ctr + ["list"]).splitlines()
+        matching = [
+            line.split()[0] for line in rows if len(line.split()) > 2 and line.split()[2] == root
+        ]
+        if not matching:
+            raise ValueError("Containerd did not retain the exact registry index")
+        command(ctr + ["tag", "--force", matching[0], evidence.image])
+        rows = command(ctr + ["list"]).splitlines()
+        if not any(
+            len(row.split()) > 2 and row.split()[0] == evidence.image and row.split()[2] == root
+            for row in rows
+        ):
+            raise ValueError("Containerd digest reference verification failed")
 
     def observe(self, app_id, environment):
         _revision, catalog, policy, _trust, _bootstrap = self.worker.snapshot()
@@ -313,36 +347,44 @@ class LocalAgent:
                     raise ValueError(
                         "Observed Argo revision has different app-specific configuration"
                     )
-            deployment = self.get("deployment", app_id, target.namespace)
-            replicas = desired["effective_values"]["replicaCount"]
-            observed = deployment.get("status", {})
-            containers = deployment["spec"]["template"]["spec"]["containers"]
-            expected_image = (
-                desired["effective_values"]["image"]["repository"] + "@" + current.image_root_digest
-            )
-            if (
-                len(containers) != 1
-                or containers[0]["image"] != expected_image
-                or observed.get("observedGeneration", 0) != deployment["metadata"]["generation"]
-                or deployment["spec"]["replicas"] != replicas
-                or any(
-                    observed.get(field, 0) != replicas
-                    for field in [
-                        "replicas",
-                        "updatedReplicas",
-                        "readyReplicas",
-                        "availableReplicas",
-                    ]
+            components = []
+            if entry.runtime.profile_id == "python312-multiservice":
+                from aegis_platform.stack_observer import observe_stack
+
+                components = observe_stack(self, entry, environment, desired)
+            else:
+                deployment = self.get("deployment", app_id, target.namespace)
+                replicas = desired["effective_values"]["replicaCount"]
+                observed = deployment.get("status", {})
+                containers = deployment["spec"]["template"]["spec"]["containers"]
+                expected_image = (
+                    desired["effective_values"]["image"]["repository"]
+                    + "@"
+                    + current.image_root_digest
                 )
-            ):
-                raise ValueError("Deployment replicas/image/generation have not converged")
-            if environment == "dev":
-                verify_dev_security(
-                    deployment,
-                    self.get("service", app_id, target.namespace),
-                    self.get("pods", None, target.namespace),
-                )
-            self.http_health(app_id, target.namespace, entry.runtime.health_path)
+                if (
+                    len(containers) != 1
+                    or containers[0]["image"] != expected_image
+                    or observed.get("observedGeneration", 0) != deployment["metadata"]["generation"]
+                    or deployment["spec"]["replicas"] != replicas
+                    or any(
+                        observed.get(field, 0) != replicas
+                        for field in [
+                            "replicas",
+                            "updatedReplicas",
+                            "readyReplicas",
+                            "availableReplicas",
+                        ]
+                    )
+                ):
+                    raise ValueError("Deployment replicas/image/generation have not converged")
+                if environment == "dev":
+                    verify_dev_security(
+                        deployment,
+                        self.get("service", app_id, target.namespace),
+                        self.get("pods", None, target.namespace),
+                    )
+                self.http_health(app_id, target.namespace, entry.runtime.health_path)
         except (ValueError, KeyError, OSError, subprocess.SubprocessError):
             self.worker.gitops.repo(
                 "POST",
@@ -354,6 +396,16 @@ class LocalAgent:
                 },
             )
             raise
+        for component in components:
+            self.worker.gitops.repo(
+                "POST",
+                "statuses/" + current.intent_anchor,
+                {
+                    "state": "success",
+                    "context": f"aegis/{app_id}/{environment}/component/{component}",
+                    "description": "Healthy " + current.fingerprint,
+                },
+            )
         if environment == "dev":
             self.worker.gitops.repo(
                 "POST",
@@ -383,7 +435,7 @@ class LocalAgent:
             "health": "healthy",
         }
 
-    def http_health(self, app_id, namespace, path):
+    def http_health(self, app_id, namespace, path, *, port=80, strict_contract=True):
         process = subprocess.Popen(
             self.kube
             + [
@@ -391,7 +443,7 @@ class LocalAgent:
                 namespace,
                 "port-forward",
                 "service/" + app_id,
-                "0:80",
+                f"0:{port}",
                 "--address",
                 "127.0.0.1",
             ],
@@ -412,7 +464,7 @@ class LocalAgent:
                 if (
                     response.url != request.full_url
                     or response.status != 200
-                    or strict_json(response.read(4096)) != {"status": "ok"}
+                    or (strict_contract and strict_json(response.read(4096)) != {"status": "ok"})
                 ):
                     raise ValueError("Service HTTP health failed")
         finally:

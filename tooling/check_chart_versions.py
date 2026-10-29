@@ -10,12 +10,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def assert_immutable(before: dict[str, bytes], after: dict[str, bytes]):
     versions = {
-        path.split("/")[2]
+        (path.split("/")[1], path.split("/")[2])
         for path in before
-        if path.startswith("charts/web-service/") and len(path.split("/")) >= 4
+        if path.startswith("charts/") and len(path.split("/")) >= 4
     }
-    for version in versions:
-        prefix = f"charts/web-service/{version}/"
+    for family, version in versions:
+        prefix = f"charts/{family}/{version}/"
         old = {p: value for p, value in before.items() if p.startswith(prefix)}
         new = {p: value for p, value in after.items() if p.startswith(prefix)}
         if old != new:
@@ -34,7 +34,7 @@ def main():
     before = {}
     if base != "0" * 40:
         paths = subprocess.check_output(
-            ["git", "ls-tree", "-r", "--name-only", base, "--", "charts/web-service"],
+            ["git", "ls-tree", "-r", "--name-only", base, "--", "charts"],
             cwd=ROOT,
             text=True,
         ).splitlines()
@@ -42,7 +42,7 @@ def main():
             before[path] = subprocess.check_output(["git", "show", f"{base}:{path}"], cwd=ROOT)
     after = {
         str(p.relative_to(ROOT)): p.read_bytes()
-        for p in (ROOT / "charts/web-service").rglob("*")
+        for p in (ROOT / "charts").rglob("*")
         if p.is_file()
     }
     assert_immutable(before, after)
