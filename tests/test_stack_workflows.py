@@ -9,6 +9,17 @@ from tooling.render_workflows import render_workflow
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_stack_dependency_scanner_has_trusted_config_without_suppressions():
+    config = ROOT / "security/trivy-empty.yaml"
+    ignore = ROOT / "security/trivy-empty.ignore"
+    assert yaml.safe_load(config.read_text()) == {}
+    assert not [
+        line
+        for line in ignore.read_text().splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+
+
 @pytest.mark.parametrize("kind", ["ci", "release"])
 def test_stack_workflows_are_generated_pinned_and_have_executable_bootstrap(kind):
     rendered = render_workflow(kind, "python-stack")
