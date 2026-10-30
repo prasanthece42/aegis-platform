@@ -1,6 +1,7 @@
 """Publish only validated stack candidates, then retain complete per-service OCI graphs."""
 
 import argparse
+import hashlib
 import os
 import re
 import sys
@@ -26,6 +27,7 @@ from aegis_platform.stack_release import (  # noqa: E402
     StackReleaseEvidence,
     verify_stack_bundle,
 )
+from tooling.oci_manifest import normalize  # noqa: E402
 from tooling.stack_ci import (  # noqa: E402
     context,
     inspect,
@@ -35,6 +37,36 @@ from tooling.stack_ci import (  # noqa: E402
     smoke,
     verify_candidate,
 )
+
+
+def publish_oci(tag, config_digest):
+    # docker-daemon -> OCI copying can rewrite the Docker configuration JSON.
+    # Preserve the tested blobs and change only descriptor media types, as in
+    # the single-service publisher.
+    run(["docker", "push", tag])
+    manifest = strict_json(
+        run(["docker", "buildx", "imagetools", "inspect", tag, "--raw"], capture=True).encode()
+    )
+    if manifest.get("config", {}).get("digest") != config_digest:
+        raise ValueError("Registry manifest differs from the tested candidate config")
+    raw = canonical(normalize(manifest))
+    run(
+        [
+            "regctl",
+            "manifest",
+            "put",
+            "--content-type",
+            "application/vnd.oci.image.manifest.v1+json",
+            tag,
+        ],
+        input=raw,
+    )
+    checksum = run(
+        ["skopeo", "inspect", "--format", "{{.Digest}}", "docker://" + tag], capture=True
+    )
+    if checksum != "sha256:" + hashlib.sha256(raw).hexdigest():
+        raise ValueError("Registry OCI manifest differs from the preserved candidate graph")
+    return checksum
 
 
 def publish_platform(directory, destination, ctx, arch):
@@ -50,11 +82,7 @@ def publish_platform(directory, destination, ctx, arch):
             f"{ctx.workflow_run_id}-{ctx.run_attempt}-{arch}"
         )
         run(["docker", "tag", service["image_id"], tag])
-        # Normalize transport media types to OCI while preserving config/layer content.
-        run(["skopeo", "copy", "--format", "oci", "docker-daemon:" + tag, "docker://" + tag])
-        checksum = run(
-            ["skopeo", "inspect", "--format", "{{.Digest}}", "docker://" + tag], capture=True
-        )
+        checksum = publish_oci(tag, service["image_config_digest"])
         if not re.fullmatch(r"sha256:[0-9a-f]{64}", checksum):
             raise ValueError("Registry did not return a valid pushed digest")
         reference = component.image_name + "@" + checksum

@@ -87,6 +87,20 @@ __AEGIS_BOOTSTRAP__
           sudo apt-get update
           sudo apt-get install --yes skopeo
           printf '%s' "$GH_TOKEN" | skopeo login --username "$REGISTRY_USER" --password-stdin ghcr.io
+      - name: Install checksum-pinned OCI manifest publisher
+        run: |
+          mkdir -p "$RUNNER_TEMP/aegis-stack-tools"
+          curl --fail --silent --show-error --location \
+            "https://github.com/regclient/regclient/releases/download/v0.11.7/regctl-linux-$ARCH" \
+            --output "$RUNNER_TEMP/aegis-stack-tools/regctl"
+          if [[ "$ARCH" == amd64 ]]; then
+            checksum=3737fbbdd791e04e7a831640b681f3397a376498e80e2ad9b1b2d27296f239bc
+          else
+            checksum=9f349bab5c407ac04f3dabf99c7c7a6b0f9e9723c23f2775380e804d02c6dbb9
+          fi
+          echo "$checksum  $RUNNER_TEMP/aegis-stack-tools/regctl" | sha256sum --check
+          chmod +x "$RUNNER_TEMP/aegis-stack-tools/regctl"
+          echo "$RUNNER_TEMP/aegis-stack-tools" >> "$GITHUB_PATH"
       - name: Verify bytes, publish digests and exercise the pulled stack
         run: python platform/tooling/stack_publish.py platform
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
